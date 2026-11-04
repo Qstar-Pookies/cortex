@@ -1,0 +1,1464 @@
+﻿<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cortex</title>
+<link rel="icon" href="assets/cortex.png">
+<style>
+  :root{
+    --bg:#08080a;
+    --tile:#0d0d10;
+    --tile-hi:#131318;
+    --line:#1c1c22;
+    --line-hi:#33333d;
+    --text:#d6d6de;
+    --muted:#66666f;
+    --accent:#f70204;
+    --accent-soft:#ff2a1f;
+    --accent-dim:#5a0505;
+    --good:#63d38a;
+    --mono:"SFMono-Regular",ui-monospace,Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    margin:0;
+    background:
+      radial-gradient(900px 600px at 50% -10%, #131318 0%, transparent 70%),
+      var(--bg);
+    color:var(--text);
+    font-family:var(--mono);
+    display:flex;flex-direction:column;min-height:100%;
+    -webkit-font-smoothing:antialiased;
+  }
+
+  header{
+    display:flex;align-items:center;justify-content:space-between;gap:16px;
+    padding:18px 24px;font-size:11px;letter-spacing:.14em;
+    text-transform:uppercase;color:var(--muted);
+  }
+  .brand{display:flex;align-items:center;gap:10px;color:var(--text)}
+  .brand img.mark{
+    height:26px;width:auto;object-fit:contain;display:block;
+    transition:opacity .45s ease, transform .45s ease;
+  }
+  body.booting .brand img.mark{opacity:0;transform:scale(.7)}
+  .brand b{font-weight:600;letter-spacing:.28em}
+
+  .head-right{display:flex;align-items:center;gap:14px}
+  .pick{
+    display:inline-flex;align-items:center;gap:7px;
+    background:none;border:1px solid var(--line);border-radius:7px;
+    color:var(--muted);font:inherit;font-size:10px;letter-spacing:.12em;
+    text-transform:uppercase;padding:6px 9px;cursor:pointer;
+    transition:color .25s ease,border-color .25s ease,background .25s ease;
+  }
+  .pick svg{width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:1.5;stroke-linejoin:round}
+  .pick:hover,.pick:focus-visible{color:var(--text);border-color:var(--line-hi);background:#101014}
+  .pick.stale{color:var(--accent-soft);border-color:#3a1010}
+  .pick[hidden]{display:none}
+  .terms{
+    color:var(--muted);text-decoration:none;font-size:10px;letter-spacing:.14em;
+    text-transform:uppercase;transition:color .2s ease;
+  }
+  .terms:hover,.terms:focus-visible{color:var(--text)}
+
+  main{flex:1;display:grid;place-items:center;padding:8px 24px 28px}
+
+  /* ---------- the square ---------- */
+  .board{
+    width:min(86vmin,700px);
+    display:grid;grid-template-columns:repeat(6,1fr);
+    gap:8px;padding:8px;border:1px solid var(--line);
+    background:linear-gradient(180deg,#0b0b0e,#08080a);
+    box-shadow:0 40px 120px -50px #000, 0 0 0 1px #000 inset;
+  }
+  .tile{
+    all:unset;position:relative;
+    grid-column:span 2;aspect-ratio:1/1;
+    display:flex;flex-direction:column;justify-content:space-between;
+    padding:10px;background:var(--tile);border:1px solid var(--line);
+    cursor:pointer;overflow:hidden;isolation:isolate;
+    --mx:50%;--my:50%;
+    transition:background .25s ease,border-color .25s ease,box-shadow .35s ease,
+               transform .35s cubic-bezier(.2,.7,.3,1);
+  }
+  .tile:nth-child(4){grid-column:2/span 2;grid-row:2}
+  .tile:nth-child(5){grid-column:4/span 2;grid-row:2}
+
+  /* cursor-tracking sheen, kept under the content */
+  .tile::before{
+    content:"";position:absolute;inset:0;z-index:-1;pointer-events:none;
+    background:radial-gradient(190px circle at var(--mx) var(--my),
+      color-mix(in srgb, var(--hc,var(--accent)) 22%, transparent), transparent 72%);
+    opacity:0;transition:opacity .3s ease;
+  }
+
+  body.ready .tile{
+    animation:rise .62s cubic-bezier(.2,.7,.3,1) backwards;
+    animation-delay:calc(var(--i) * 70ms);
+  }
+  @keyframes rise{
+    from{opacity:0;transform:translateY(18px) scale(.94);filter:blur(4px)}
+  }
+
+  .tile .ico{
+    width:22px;height:22px;stroke:var(--muted);fill:none;stroke-width:1.4;
+    stroke-linecap:round;stroke-linejoin:round;
+    transition:stroke .18s ease,transform .3s cubic-bezier(.2,.7,.3,1);
+  }
+  .logo{width:30px;height:30px;display:block;transition:transform .3s cubic-bezier(.2,.7,.3,1)}
+  .logo svg{width:100%;height:100%;display:block;transition:filter .18s ease}
+  .logo-img{
+    width:32px;height:32px;object-fit:contain;display:block;
+    transition:transform .3s cubic-bezier(.2,.7,.3,1),filter .3s ease;
+  }
+
+  .tile .label{
+    font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;
+    color:var(--muted);line-height:1.3;padding-right:10px;
+    transition:color .25s ease,letter-spacing .35s cubic-bezier(.2,.7,.3,1);
+  }
+  .tile .idx{
+    position:absolute;top:9px;right:10px;font-size:8.5px;color:#2c2c34;
+    letter-spacing:.08em;transition:color .25s ease;
+  }
+  .tile .count{
+    position:absolute;left:10px;bottom:29px;
+    font-size:8px;letter-spacing:.1em;color:#3a3a44;
+    transition:color .25s ease;
+  }
+  .tile::after{
+    content:"";position:absolute;right:0;bottom:0;width:10px;height:10px;
+    border-right:1px solid var(--hc,var(--accent));
+    border-bottom:1px solid var(--hc,var(--accent));
+    opacity:0;transform:translate(4px,4px);
+    transition:opacity .25s ease,transform .35s cubic-bezier(.2,.7,.3,1);
+  }
+
+  .tile:hover,.tile:focus-visible{
+    background:var(--tile-hi);border-color:var(--hc,var(--accent));
+    transform:translateY(-4px);
+    box-shadow:0 24px 50px -28px var(--hc,var(--accent)),
+               0 0 22px -12px var(--hc,var(--accent));
+  }
+  .tile:hover::before,.tile:focus-visible::before{opacity:1}
+  .tile:hover .ico,.tile:focus-visible .ico{stroke:var(--accent);transform:translateY(-2px) scale(1.06)}
+  .tile:hover .logo,.tile:focus-visible .logo{transform:translateY(-2px) scale(1.06)}
+  .tile:hover .logo svg,.tile:focus-visible .logo svg{filter:drop-shadow(0 0 9px currentColor)}
+  .tile:hover .logo-img,.tile:focus-visible .logo-img{
+    transform:translateY(-3px) scale(1.08);
+    filter:drop-shadow(0 0 12px var(--hc,var(--accent)));
+  }
+  .tile:hover .label,.tile:focus-visible .label{color:var(--text);letter-spacing:.16em}
+  .tile:hover .idx,.tile:focus-visible .idx{color:var(--hc,var(--accent))}
+  .tile:hover .count,.tile:focus-visible .count{color:#55555f}
+  .tile:hover::after,.tile:focus-visible::after{opacity:1;transform:none}
+  .tile:focus-visible{outline:2px solid var(--hc,var(--accent));outline-offset:2px}
+  .tile:active{
+    transform:translateY(-1px) scale(.985);
+    transition-duration:.09s;
+  }
+  .ripple{
+    position:absolute;left:0;top:0;width:10px;height:10px;border-radius:50%;
+    background:var(--hc,var(--accent));opacity:.5;pointer-events:none;
+    transform:translate(-50%,-50%) scale(0);
+    animation:ripple .6s cubic-bezier(.2,.7,.3,1) forwards;
+  }
+  @keyframes ripple{
+    to{transform:translate(-50%,-50%) scale(34);opacity:0}
+  }
+
+  /* ---------- modal ---------- */
+  .scrim{
+    position:fixed;inset:0;display:grid;place-items:center;padding:24px;
+    background:rgba(4,4,6,.76);
+    backdrop-filter:blur(0);-webkit-backdrop-filter:blur(0);
+    opacity:0;pointer-events:none;z-index:10;
+    transition:opacity .26s ease,backdrop-filter .34s ease,-webkit-backdrop-filter .34s ease;
+  }
+  .scrim.open{
+    opacity:1;pointer-events:auto;
+    backdrop-filter:blur(7px);-webkit-backdrop-filter:blur(7px);
+  }
+  .scrim[hidden]{display:none}
+
+  .panel{
+    position:relative;
+    width:min(620px,100%);max-height:min(82vh,700px);
+    display:flex;flex-direction:column;
+    background:linear-gradient(180deg,#0c0c10,#0a0a0d);
+    border:1px solid var(--line-hi);
+    border-radius:16px;
+    box-shadow:0 0 0 1px #000, 0 60px 140px -40px #000;
+    transform-origin:var(--ox,50%) var(--oy,0%);
+    opacity:0;
+    transform:translateY(16px) scale(.93);
+    transition:opacity .28s ease, transform .46s cubic-bezier(.16,1,.3,1), width .2s ease;
+    overflow:hidden;
+  }
+  .panel.wide{width:min(800px,100%)}
+  .scrim.open .panel{opacity:1;transform:none}
+
+  /* comet of light travelling around the panel edge, in the model's colour */
+  @property --ring{syntax:"<angle>";inherits:false;initial-value:0deg}
+  .panel::after{
+    content:"";position:absolute;inset:0;z-index:3;border-radius:inherit;
+    padding:1px;pointer-events:none;
+    background:conic-gradient(from var(--ring),
+      transparent 0deg 235deg,
+      color-mix(in srgb, var(--hc,var(--accent)) 40%, transparent) 305deg,
+      var(--hc,var(--accent)) 344deg 356deg,
+      transparent 360deg);
+    -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);
+    -webkit-mask-composite:xor;
+    mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);
+    mask-composite:exclude;
+    animation:ringspin 4.2s linear infinite;
+  }
+  @keyframes ringspin{to{--ring:360deg}}
+
+  @keyframes headIn{from{opacity:0;transform:translateY(-6px)}}
+  .scrim.open .panel-head{animation:headIn .46s cubic-bezier(.2,.7,.3,1) backwards}
+
+  .panel-head{display:flex;align-items:center;gap:14px;padding:20px 20px 18px;border-bottom:1px solid var(--line)}
+  .panel-head .pmark{width:26px;height:26px;flex:0 0 auto;display:block}
+  .panel-head .pmark svg{width:100%;height:100%;display:block}
+  .panel-head .pmark-img{width:28px;height:28px;flex:0 0 auto;display:block;object-fit:contain}
+  .panel-head .pico{
+    width:24px;height:24px;flex:0 0 auto;stroke:var(--accent-soft);fill:none;
+    stroke-width:1.4;stroke-linecap:round;stroke-linejoin:round;
+  }
+  .panel-head h2{margin:0;font-size:12px;font-weight:600;letter-spacing:.22em;text-transform:uppercase}
+  .panel-head .kick{
+    display:block;margin-top:5px;font-size:9px;letter-spacing:.16em;
+    text-transform:uppercase;color:var(--muted);font-weight:400;
+  }
+  .close{
+    all:unset;margin-left:auto;width:30px;height:30px;display:grid;place-items:center;
+    border:1px solid var(--line);border-radius:8px;color:var(--muted);cursor:pointer;
+    font-size:14px;line-height:1;
+    transition:border-color .18s ease,color .18s ease,background .18s ease;
+  }
+  .close:hover{border-color:var(--hc,var(--accent));color:var(--text);background:#111116}
+  .close:focus-visible{outline:2px solid var(--hc,var(--accent));outline-offset:2px}
+
+  .panel-body{
+    padding:18px 18px 20px;overflow:auto;font-size:12.5px;line-height:1.75;color:#a8a8b3;
+    scrollbar-width:thin;scrollbar-color:#24242c transparent;
+  }
+  .panel-body::-webkit-scrollbar{width:8px}
+  .panel-body::-webkit-scrollbar-thumb{background:#24242c;border:2px solid transparent;background-clip:content-box}
+  .panel-body::-webkit-scrollbar-thumb:hover{background:#33333d;background-clip:content-box}
+  .panel-body::-webkit-scrollbar-track{background:transparent}
+  .panel-body p{margin:0 0 14px}
+  .panel-body p:last-child{margin-bottom:0}
+  .panel-body code{
+    font-family:var(--mono);font-size:11.5px;color:var(--accent-soft);
+    background:#15151a;padding:1px 5px;
+  }
+  .slot{
+    margin-top:18px;padding:14px;border:1px dashed var(--line-hi);border-radius:10px;
+    font-size:10.5px;letter-spacing:.06em;color:#4c4c56;
+  }
+
+  /* ---------- prompt cards ---------- */
+  .cards{display:flex;flex-direction:column;gap:9px}
+
+  .card{
+    position:relative;border:1px solid var(--line);background:#0d0d11;
+    border-radius:11px;overflow:hidden;
+    transition:border-color .22s ease,background .22s ease,box-shadow .3s ease;
+  }
+  .card::before{
+    content:"";position:absolute;left:0;top:11px;bottom:11px;width:2px;
+    border-radius:2px;
+    background:var(--hc,var(--accent));
+    opacity:0;transform:scaleY(.25);transform-origin:top;
+    transition:opacity .22s ease,transform .32s cubic-bezier(.2,.7,.3,1);
+  }
+  .card:hover{border-color:#2b2b34;background:#101016}
+  .card.open{
+    border-color:var(--line-hi);background:#0f0f15;
+    box-shadow:0 14px 34px -26px #000;
+  }
+  .card.open::before{opacity:1;transform:none}
+
+  @keyframes cardIn{from{opacity:0;transform:translateY(10px)}}
+  .scrim.open .card{
+    animation:cardIn .5s cubic-bezier(.2,.7,.3,1) backwards;
+    animation-delay:calc(.08s + min(var(--ci, 0), 6) * 40ms);
+  }
+
+  .card-head{
+    display:grid;grid-template-columns:auto auto minmax(0,1fr) auto auto;
+    align-items:center;gap:12px;padding:11px 13px;cursor:pointer;
+  }
+  .card-head:focus-visible{outline:2px solid var(--hc,var(--accent));outline-offset:-2px}
+  .card-main{min-width:0;display:flex;flex-direction:column;gap:3px}
+
+  .copy{
+    all:unset;flex:0 0 auto;display:inline-flex;align-items:center;gap:6px;
+    padding:5px 9px;border:1px solid var(--line-hi);border-radius:7px;background:#0a0a0e;
+    font-size:8.5px;letter-spacing:.14em;text-transform:uppercase;
+    color:var(--muted);cursor:pointer;
+    transition:border-color .18s ease,color .18s ease,background .18s ease;
+  }
+  .copy svg{
+    width:11px;height:11px;stroke:currentColor;fill:none;stroke-width:1.6;
+    stroke-linecap:round;stroke-linejoin:round;
+  }
+  .copy:hover{border-color:var(--hc,var(--accent));color:var(--text);background:#111116}
+  .copy:active{transform:translateY(1px)}
+  .copy:focus-visible{outline:2px solid var(--hc,var(--accent));outline-offset:2px}
+  .copy.done{border-color:var(--good);color:var(--good);background:#0a120c}
+
+  .card-title{
+    font-size:11.5px;letter-spacing:.04em;color:var(--text);
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+    transition:color .2s ease;
+  }
+  .card.open .card-title{color:#fff}
+  .card-meta{
+    flex:0 0 auto;font-size:8.5px;letter-spacing:.08em;color:#3f3f48;
+    font-variant-numeric:tabular-nums;
+  }
+  .card-sub{
+    font-size:9.5px;line-height:1.45;color:#4c4c56;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+    max-height:16px;opacity:1;
+    transition:max-height .3s ease,opacity .18s ease;
+  }
+  .card.open .card-sub{max-height:0;opacity:0}
+
+  .chev-btn{
+    all:unset;width:22px;height:22px;display:grid;place-items:center;
+    border:1px solid transparent;border-radius:6px;cursor:pointer;
+    transition:border-color .18s ease,background .18s ease;
+  }
+  .card-head:hover .chev-btn{border-color:var(--line-hi);background:#0a0a0e}
+  .chev-btn:focus-visible{outline:2px solid var(--hc,var(--accent));outline-offset:2px}
+  .chev{
+    width:11px;height:11px;stroke:var(--muted);fill:none;
+    stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;
+    transition:transform .28s cubic-bezier(.2,.7,.3,1),stroke .18s ease;
+  }
+  .card.open .chev{transform:rotate(180deg);stroke:var(--hc,var(--accent))}
+
+  .card-body{
+    display:grid;grid-template-rows:0fr;
+    transition:grid-template-rows .36s cubic-bezier(.2,.7,.3,1);
+  }
+  .card-body-in{overflow:hidden;min-height:0;padding:0 13px 13px}
+  .card.open .card-body{grid-template-rows:1fr}
+  .card-body .prompt-text{margin:0 0 13px}
+  .card.open .prompt-text{animation:cardIn .38s ease backwards .05s}
+
+  .prompt-text{
+    padding:14px 16px;background:#07070a;border:1px solid #17171d;border-radius:9px;
+    font-family:var(--mono);font-size:11.5px;line-height:1.75;color:#bcbcc7;
+    white-space:pre-wrap;overflow-wrap:anywhere;
+    max-height:min(44vh,340px);overflow:auto;tab-size:2;
+    scrollbar-width:thin;scrollbar-color:#24242c transparent;
+  }
+  .prompt-text::-webkit-scrollbar{width:8px;height:8px}
+  .prompt-text::-webkit-scrollbar-thumb{background:#24242c;border:2px solid transparent;background-clip:content-box}
+  .prompt-text::-webkit-scrollbar-thumb:hover{background:#33333d;background-clip:content-box}
+  .prompt-text::-webkit-scrollbar-track{background:transparent}
+
+  .card-foot{
+    display:flex;align-items:center;justify-content:space-between;gap:14px;
+    margin-top:8px;font-size:8.5px;letter-spacing:.1em;text-transform:uppercase;
+    color:#45454f;
+  }
+  .card-foot span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .card-file{font-family:var(--mono);letter-spacing:.04em;color:#3c3c46;text-transform:none}
+
+  .empty{
+    border:1px dashed var(--line-hi);border-radius:11px;padding:18px;
+    font-size:11px;line-height:1.8;letter-spacing:.04em;color:#4c4c56;
+  }
+  .empty b{color:#7c7c88;font-weight:500}
+  .empty code{color:var(--accent-soft);background:#15151a;padding:1px 5px}
+
+  /* ==================================================================
+     INTRO
+     ================================================================== */
+  .intro{
+    position:fixed;inset:0;z-index:60;
+    display:grid;place-items:center;
+    background:var(--bg);
+    overflow:hidden;
+    cursor:default;
+  }
+  .intro::after{
+    content:"";position:absolute;inset:0;pointer-events:none;
+    background:repeating-linear-gradient(
+      to bottom, rgba(255,255,255,.025) 0 1px, transparent 1px 3px);
+    opacity:0;animation:flicker 2.6s ease forwards;
+  }
+  @keyframes flicker{
+    0%{opacity:0}
+    12%{opacity:.9}
+    18%{opacity:.25}
+    26%{opacity:.7}
+    60%{opacity:.25}
+    100%{opacity:0}
+  }
+
+  .intro .ambient{
+    position:absolute;inset:0;
+    display:grid;place-items:center;
+    grid-template-columns:1fr;grid-template-rows:1fr;
+    transition:opacity .5s ease;
+  }
+  .intro.merging .ambient{opacity:0}
+
+  .intro .glow{
+    position:absolute;inset:0;margin:auto;
+    width:130vmin;height:130vmin;border-radius:50%;
+    background:radial-gradient(circle,
+      rgba(247,2,4,.26) 0%,
+      rgba(247,2,4,.10) 30%,
+      rgba(247,2,4,.03) 48%,
+      transparent 64%);
+    opacity:0;transform:scale(.55);
+    animation:glow 2.2s cubic-bezier(.2,.7,.3,1) forwards .15s;
+  }
+  @keyframes glow{
+    0%{opacity:0;transform:scale(.55)}
+    40%{opacity:1;transform:scale(.95)}
+    100%{opacity:.55;transform:scale(1.2)}
+  }
+
+  .intro .ring{
+    position:absolute;inset:0;margin:auto;
+    width:min(34vmin,260px);height:min(34vmin,260px);
+    border:1px solid rgba(247,2,4,.55);border-radius:50%;
+    opacity:0;
+  }
+  .intro .ring.a{animation:ring 1.9s cubic-bezier(.2,.7,.3,1) forwards .35s}
+  .intro .ring.b{animation:ring 1.9s cubic-bezier(.2,.7,.3,1) forwards .62s}
+  @keyframes ring{
+    0%{opacity:.85;transform:scale(.75)}
+    70%{opacity:.18}
+    100%{opacity:0;transform:scale(2.7)}
+  }
+
+  .intro .stage{
+    position:relative;
+    display:flex;align-items:center;justify-content:center;
+  }
+  .intro .hold{
+    will-change:transform;
+    transform-origin:center center;
+  }
+  .intro .hold img{
+    display:block;
+    width:min(32vmin,240px);height:auto;
+    opacity:0;
+    filter:blur(18px) drop-shadow(0 0 0 rgba(247,2,4,0));
+    animation:pop .85s cubic-bezier(.16,1,.3,1) forwards .18s,
+              halo 2.4s ease-in-out infinite 1s;
+  }
+  @keyframes pop{
+    0%{opacity:0;transform:scale(.88);filter:blur(18px) drop-shadow(0 0 0 rgba(247,2,4,0))}
+    55%{opacity:1}
+    100%{opacity:1;transform:scale(1);filter:blur(0) drop-shadow(0 0 42px rgba(247,2,4,.5))}
+  }
+  @keyframes halo{
+    0%,100%{filter:blur(0) drop-shadow(0 0 34px rgba(247,2,4,.38))}
+    50%{filter:blur(0) drop-shadow(0 0 58px rgba(247,2,4,.62))}
+  }
+
+  .intro .word{
+    position:absolute;top:calc(100% + 22px);left:50%;
+    transform:translateX(-50%);
+    white-space:nowrap;
+    font-size:11px;letter-spacing:1.1em;text-indent:1.1em;
+    color:#8a8a94;text-transform:uppercase;
+    opacity:0;
+    transition:opacity .7s ease,letter-spacing .9s cubic-bezier(.2,.7,.3,1);
+  }
+  .intro.show .word{opacity:1;letter-spacing:.5em}
+  .intro.merging .word{
+    opacity:0;letter-spacing:.9em;
+    transition-duration:.3s,.4s;
+  }
+
+  .intro .hint{
+    position:absolute;bottom:28px;left:0;right:0;text-align:center;
+    font-size:9px;letter-spacing:.2em;text-transform:uppercase;color:#33333d;
+    opacity:0;transition:opacity .5s ease;
+  }
+  .intro.show .hint{opacity:1;transition-delay:.45s}
+  .intro.merging .hint{opacity:0;transition-delay:0s}
+
+  /* handoff to the header mark */
+  .intro.merging::after{animation:none;opacity:0}
+  .intro.merging .hold img{
+    animation:none;opacity:1;transform:none;
+    filter:drop-shadow(0 0 16px rgba(247,2,4,.4));
+  }
+  .intro.merging .word{opacity:0;letter-spacing:.9em}
+  .intro.merging .hint{opacity:0}
+
+  .intro.leaving{transition:opacity .35s ease;opacity:0}
+
+  @media (max-width:640px){
+    header{padding:14px 16px}
+    main{padding:0 14px 20px}
+    .board{gap:5px;padding:5px;width:min(94vmin,100%)}
+    .tile{padding:7px}
+    .tile .label{font-size:7.5px;letter-spacing:.06em}
+    .tile .idx,.tile .count{display:none}
+    .tile .ico{width:17px;height:17px}
+    .logo{width:22px;height:22px}
+    .card-meta{display:none}
+    .copy{padding:7px}
+    .copy span{display:none}
+    .scrim{padding:14px}
+    .panel-head{padding:16px 15px 14px;gap:12px}
+    .panel-body{padding:14px}
+    .card-head{gap:10px;padding:10px 11px}
+    .panel-head .pmark-img{width:24px;height:24px}
+  }
+
+  @media (prefers-reduced-motion: reduce){
+    .intro{display:none}
+    body.booting .brand img.mark{opacity:1;transform:none}
+    .tile{opacity:1;transform:none}
+    body.ready .tile{animation:none}
+    .scrim,.panel,.card,.card-body,.card-sub,.copy,.close,.chev{transition:none}
+    .scrim.open .panel-head,.scrim.open .card,
+    .card.open .prompt-text{animation:none}
+    .panel::after{animation:none}
+    .ripple{display:none}
+  }
+</style>
+</head>
+<body class="booting">
+
+<div class="intro" id="intro">
+  <div class="ambient">
+    <div class="glow"></div>
+    <div class="ring a"></div>
+    <div class="ring b"></div>
+  </div>
+  <div class="stage">
+    <div class="hold" id="hold"><img src="assets/cortex.png" alt="Cortex"></div>
+    <div class="word">Cortex</div>
+  </div>
+  <div class="hint">click or press any key</div>
+</div>
+
+<header>
+  <div class="brand">
+    <img class="mark" src="assets/cortex.png" alt="">
+    <b>Cortex</b>
+  </div>
+  <div class="head-right">
+    <button class="pick" id="pick" type="button" aria-label="Load prompts folder" hidden>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7.2a2 2 0 0 1 2-2h3.7l2 2H19a2 2 0 0 1 2 2v8.6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7.2Z"/></svg>
+      <span id="pickLabel">load folder</span>
+    </button>
+    <a class="terms" href="terms.html">terms</a>
+  </div>
+</header>
+
+<main>
+  <div class="board" id="board" role="grid" aria-label="Cortex index"></div>
+</main>
+
+<div class="scrim" id="scrim" hidden>
+  <div class="panel" id="panel" role="dialog" aria-modal="true" aria-labelledby="panelName">
+    <div class="panel-head">
+      <span id="panelIcon"></span>
+      <h2><span id="panelName">&mdash;</span><span class="kick" id="panelKick"></span></h2>
+      <button class="close" id="closeBtn" aria-label="Close">&times;</button>
+    </div>
+    <div class="panel-body" id="panelBody"></div>
+  </div>
+</div>
+
+<script>
+/* ==================================================================
+   CONFIG
+   On <user>.github.io/<repo> this is detected automatically.
+   Only fill these in if you open the file some other way.
+   ================================================================== */
+const GITHUB_OWNER = "";
+const GITHUB_REPO  = "";
+const BRANCH_FALLBACK = ["main", "master"];
+
+/* Built-in prompts. Shown when the repo can't be read. */
+const PROMPTS = {
+
+  claude: [
+    { title: "Technical Editor", text: `You are a technical editor. I will paste a draft below.
+
+Rules:
+- Keep the author's voice. Do not rewrite for style.
+- Flag only: factual errors, ambiguous sentences, and claims that need a citation.
+- Reply with a numbered list. Each item quotes the exact sentence, then one line of why.
+- If the draft is clean, say "clean" and nothing else.
+
+Draft:
+"""
+"""`
+    }
+  ],
+
+  deepseek: [
+    { title: "Error Explainer", text: `You are a systems debugger. I will paste a stack trace.
+
+Output exactly this shape:
+
+1. **What failed** - one sentence, no hedging.
+2. **Why** - the specific line and the specific assumption it broke.
+3. **Fix** - the smallest change that resolves it.
+4. **Verify** - the command or test that proves the fix worked.
+
+Do not guess at code you cannot see. If the trace is truncated, say what is missing.
+
+Trace:
+"""
+"""`
+    }
+  ],
+
+  gemini: [
+    { title: "Spec Diff", text: `You are comparing two versions of a product spec.
+
+For each change, output one row:
+
+[v1 paragraph] -> [v2 paragraph] -> [what actually changed, in five words]
+
+Then list separately any requirement that disappeared entirely - those matter more than the edits.
+
+Spec v1:
+"""
+"""
+
+Spec v2:
+"""
+"""`
+    }
+  ],
+
+  grok: [
+    { title: "Daily Brief", text: `Summarise the last 24 hours of news about <TOPIC>.
+
+Rules:
+- Five bullets, twelve words max each.
+- Every bullet carries a source domain in parentheses.
+- If two sources disagree, say so in a sixth bullet.
+- No adjectives that express an opinion. "Sharply" is an opinion.
+
+If you cannot verify a claim, drop it rather than soften it.`
+    }
+  ],
+
+  opencode: [
+    { title: "Plan Before Edit", text: `Before you edit any file in this project:
+
+1. Print the plan as a numbered list of files and the exact change to each.
+2. Wait for me to say "go".
+3. After editing, print a diff summary - files touched, lines added, lines removed.
+4. Run the project's test command and paste the output verbatim.
+
+Never edit a file you have not read this session. Never delete a file without printing it first.`
+    }
+  ]
+
+};
+
+/* ------------------------------------------------------------------
+   Icons
+------------------------------------------------------------------ */
+const I = {
+  home:`<path d="M3 10.5 12 3l9 7.5"/><path d="M5.5 9.7V20h4.8v-5.6h3.4V20h4.8V9.7"/>`,
+  braces:`<path d="M9.5 4c-2 0-2.9 1-2.9 2.8v1.9c0 1-.8 1.9-2.1 3.3 1.3 1.4 2.1 2.3 2.1 3.3v1.9C6.6 19 7.5 20 9.5 20"/><path d="M14.5 4c2 0 2.9 1 2.9 2.8v1.9c0 1 .8 1.9 2.1 3.3-1.3 1.4-2.1 2.3-2.1 3.3v1.9c0 1.8-.9 2.8-2.9 2.8"/>`,
+  mask:`<path d="M4 6.2c2.6 1.5 5.2 2 8 2s5.4-.5 8-2c0 6.6-2 11.6-8 13.8C6 17.8 4 12.8 4 6.2Z"/><path d="M9.3 10.4h.01M14.7 10.4h.01"/><path d="M10 14.4c1.2.9 2.8.9 4 0"/>`,
+  syringe:`<path d="m18.4 2.6 3 3"/><path d="m16.9 7.1 3-3"/><path d="M19.3 9.6 10.9 18"/><path d="m12.4 11.9 3.9 3.9"/><path d="m6.8 17.4 3.6-3.6"/><path d="M3.6 20.6 6 18.2"/>`,
+  chat:`<path d="M3.8 5.2h11.6v8.4H8.4l-4.6 3.6z"/><path d="M17.2 8.6h3v9.2l-3.4-2.6h-5.1"/>`,
+  shield:`<path d="M12 3 20 6v5.7c0 4.9-3.4 7.9-8 9.1-4.6-1.2-8-4.2-8-9.1V6l8-3Z"/><path d="m8.9 11.8 2.2 2.2 4-4.2"/>`,
+  flag:`<path d="M5.5 21V3.6"/><path d="M5.5 4.2h10.9l-2.1 3.1 2.1 3.1H5.5"/>`,
+  folder:`<path d="M3 7.2a2 2 0 0 1 2-2h3.7l2 2H19a2 2 0 0 1 2 2v8.6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7.2Z"/>`,
+  chip:`<rect x="7" y="7" width="10" height="10" rx="1.4"/><path d="M10 3.2v2.4M14 3.2v2.4M10 18.4v2.4M14 18.4v2.4M3.2 10h2.4M3.2 14h2.4M18.4 10h2.4M18.4 14h2.4"/>`,
+  book:`<path d="M4.4 19.2V5.6a2.2 2.2 0 0 1 2.2-2.2h13v15.8H6.6a2.2 2.2 0 0 0-2.2 2.2Z"/><path d="M4.4 19.2a2.2 2.2 0 0 0 2.2 2.2h13"/>`,
+  info:`<circle cx="12" cy="12" r="8.4"/><path d="M12 11.1v5.6"/><path d="M12 7.9h.01"/>`
+};
+
+/* ------------------------------------------------------------------
+   Plates
+------------------------------------------------------------------ */
+const TILES = [
+  { id:"claude", label:"Claude", kick:"Anthropic", brand:"#d97757", img:"assets/claude.png", dir:"claude" },
+  { id:"deepseek", label:"DeepSeek", kick:"DeepSeek AI", brand:"#4d6bfe", img:"assets/deepseek.png", dir:"deepseek" },
+  { id:"gemini", label:"Gemini", kick:"Google DeepMind", brand:"#4a90e2", img:"assets/gemini.png", dir:"gemini" },
+  { id:"grok", label:"Grok", kick:"xAI", brand:"#e6e6e6", img:"assets/grok.png", dir:"grok" },
+  { id:"opencode", label:"OpenCode", kick:"Agent harness", brand:"#ff5c39", img:"assets/opencode.png", dir:"opencode" }
+];
+
+/* ==================================================================
+   INTRO
+   ================================================================== */
+(function intro() {
+  const el = document.getElementById("intro");
+  const hold = document.getElementById("hold");
+  const mark = document.querySelector(".brand img.mark");
+  const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  let done = false;
+
+  function finish() {
+    if (done) return;
+    done = true;
+    el.classList.add("leaving");
+    document.body.classList.remove("booting");
+    document.body.classList.add("ready");
+    setTimeout(() => el.remove(), 380);
+  }
+
+  if (reduce) { finish(); return; }
+
+  function merge() {
+    if (done) return;
+    const a = hold.getBoundingClientRect();
+
+    // the header mark is mid-shrink (scale .7) while booting; measure its real size
+    const restore = mark.style.transform;
+    mark.style.transition = "none";
+    mark.style.transform = "none";
+    const b = mark.getBoundingClientRect();
+    mark.style.transform = restore;
+    mark.style.transition = "";
+
+    if (!a.width || !b.width) { finish(); return; }
+
+    const s = b.width / a.width;
+    const dx = (b.left + b.width / 2) - (a.left + a.width / 2);
+    const dy = (b.top + b.height / 2) - (a.top + a.height / 2);
+
+    el.classList.add("merging");
+    hold.style.transition = "transform .7s cubic-bezier(.65,0,.15,1)";
+    hold.style.transform = `translate(${dx}px, ${dy}px) scale(${s})`;
+  }
+
+  const timers = [];
+  timers.push(setTimeout(() => el.classList.add("show"), 1100));
+  timers.push(setTimeout(merge, 2050));
+  timers.push(setTimeout(finish, 2800));
+
+  function skip() {
+    timers.forEach(clearTimeout);
+    finish();
+  }
+
+  el.addEventListener("click", skip);
+  document.addEventListener("keydown", skip, { once: true });
+})();
+
+/* ------------------------------------------------------------------
+   State
+------------------------------------------------------------------ */
+const SKEY = "cortex.sync.v3";
+const MODELS = TILES.filter(t => t.dir).map(t => t.dir);
+const FILE_RE = /^prompts\/([^/]+)\/([^/]+\.(?:md|txt|prompt))$/i;
+
+let SYNC = null;
+let SYNC_AT = 0;
+let SYNC_ERR = "";
+let BRANCH = "";
+
+/* ------------------------------------------------------------------
+   Repo detection
+------------------------------------------------------------------ */
+function repoInfo() {
+  if (GITHUB_OWNER && GITHUB_REPO) {
+    return { owner: GITHUB_OWNER, repo: GITHUB_REPO };
+  }
+
+  const m = location.hostname.match(/^([^.]+)\.github\.io$/i);
+  if (m) {
+    const seg = location.pathname.split("/").filter(Boolean)[0];
+    return { owner: m[1], repo: seg || `${m[1]}.github.io` };
+  }
+
+  return null;
+}
+
+/* ------------------------------------------------------------------
+   Listing + fetching
+------------------------------------------------------------------ */
+/* A fresh stamp per page load, so no CDN can hand back yesterday's list. */
+const LOAD_TS = Date.now();
+
+async function listRepoFiles({ owner, repo }) {
+  let lastErr = null;
+
+  for (const branch of BRANCH_FALLBACK) {
+    /* GitHub's tree API first: it is the live repo, not a mirror. */
+    try {
+      const r = await fetch(
+        `https://api.github.com/repos/${owner}/${repo}/git/trees/${branch}?recursive=1&t=${LOAD_TS}`,
+        { cache: "no-store", headers: { Accept: "application/vnd.github+json" } }
+      );
+      if (r.ok) {
+        const j = await r.json();
+        if (Array.isArray(j.tree) && j.tree.length) {
+          BRANCH = branch;
+          return j.tree.filter(t => t.type === "blob").map(t => t.path);
+        }
+      } else if (r.status === 404) {
+        continue; /* branch does not exist, try the next one */
+      }
+    } catch (e) { lastErr = e; }
+
+    /* jsDelivr is a cached mirror: only useful when the API is rate limited. */
+    try {
+      const r = await fetch(
+        `https://data.jsdelivr.com/v1/packages/gh/${owner}/${repo}@${branch}?structure=flat&t=${LOAD_TS}`,
+        { cache: "no-store" }
+      );
+      if (r.ok) {
+        const j = await r.json();
+        if (Array.isArray(j.files) && j.files.length) {
+          BRANCH = branch;
+          return j.files.map(f => String(f.name).replace(/^\/+/, ""));
+        }
+      }
+    } catch (e) { lastErr = e; }
+  }
+
+  throw lastErr || new Error("repo not found");
+}
+
+async function fetchText({ owner, repo }, filePath) {
+  const clean = filePath.split("/").map(encodeURIComponent).join("/");
+  const url = `https://raw.githubusercontent.com/${owner}/${repo}/${BRANCH}/${clean}?t=${LOAD_TS}`;
+  const r = await fetch(url, { cache: "no-store" });
+  if (!r.ok) throw new Error(`${filePath}: HTTP ${r.status}`);
+  return r.text();
+}
+
+/* ------------------------------------------------------------------
+   Parsing
+------------------------------------------------------------------ */
+function parseFile(name, raw) {
+  let text = raw.replace(/\r\n/g, "\n").trim();
+  let title = "";
+
+  const fm = text.match(/^---\n([\s\S]*?)\n---\n?/);
+  if (fm) {
+    const m = fm[1].match(/^title:\s*(.+)$/mi);
+    if (m) title = m[1].trim().replace(/^["']|["']$/g, "");
+    text = text.slice(fm[0].length).trim();
+  }
+
+  if (!title) {
+    const h = text.match(/^#\s+(.+)\n?/);
+    if (h) { title = h[1].trim(); text = text.slice(h[0].length).trim(); }
+  }
+
+  if (!title) {
+    title = name.replace(/\.[^.]+$/, "").replace(/[-_]+/g, " ")
+      .replace(/\b\w/g, c => c.toUpperCase());
+  }
+
+  return { title, text, file: name };
+}
+
+/* ------------------------------------------------------------------
+   Load
+------------------------------------------------------------------ */
+async function loadPrompts() {
+  const info = repoInfo();
+  if (!info) { SYNC_ERR = "no repo configured"; return false; }
+
+  try {
+    const files = await listRepoFiles(info);
+    const targets = files.filter(p => FILE_RE.test(p) && MODELS.includes(p.match(FILE_RE)[1].toLowerCase()));
+
+    const buckets = {};
+    const results = await Promise.allSettled(targets.map(async p => {
+      const [, model, name] = p.match(FILE_RE);
+      const raw = await fetchText(info, p);
+      if (!raw.trim()) return null;
+      return { key: model.toLowerCase(), entry: parseFile(name, raw) };
+    }));
+
+    for (const r of results) {
+      if (r.status !== "fulfilled" || !r.value) continue;
+      (buckets[r.value.key] = buckets[r.value.key] || []).push(r.value.entry);
+    }
+
+    for (const k of Object.keys(buckets)) {
+      buckets[k].sort((a, b) => a.title.localeCompare(b.title));
+    }
+
+    SYNC = buckets;
+    SYNC_AT = Date.now();
+    SYNC_ERR = "";
+
+    try {
+      localStorage.setItem(SKEY, JSON.stringify({ at: SYNC_AT, repo: info.repo, data: SYNC }));
+    } catch {}
+
+    return true;
+  } catch (e) {
+    SYNC_ERR = e.message || "failed";
+    return false;
+  }
+}
+
+/* instant paint from cache, then always refresh */
+try {
+  const c = JSON.parse(localStorage.getItem(SKEY) || "null");
+  const info = repoInfo();
+  if (c && info && c.repo === info.repo && c.data) {
+    SYNC = c.data;
+    SYNC_AT = c.at || 0;
+  }
+} catch {}
+
+/* ------------------------------------------------------------------
+   Local mode
+
+   A page opened with file:// is sandboxed: it cannot fetch, XHR or
+   iframe a file sitting next to it, so the prompts folder can only be
+   read after the browser hands it over once. The parsed contents are
+   cached, so later opens paint instantly and only a re-scan needs a
+   click.
+------------------------------------------------------------------ */
+const LOCAL_KEY = "cortex.local.v1";
+const FS_DB = "cortex.fs";
+const FS_STORE = "dir";
+const PROMPT_EXT = /\.(?:md|txt|prompt)$/i;
+const MAX_FILES = 400;
+
+let LOCAL = null;
+let LOCAL_HANDLE = null;
+let LOCAL_DIR = "";
+
+function localMode() {
+  return location.protocol === "file:" && !repoInfo();
+}
+
+function loadLocalCache() {
+  try {
+    const c = JSON.parse(localStorage.getItem(LOCAL_KEY) || "null");
+    if (c && c.data && Object.keys(c.data).length) {
+      LOCAL = c.data;
+      LOCAL_DIR = c.dir || "";
+    }
+  } catch {}
+}
+
+function saveLocalCache() {
+  try {
+    localStorage.setItem(LOCAL_KEY, JSON.stringify({ at: Date.now(), dir: LOCAL_DIR, data: LOCAL }));
+  } catch {}
+}
+
+function fsOpen() {
+  return new Promise((res, rej) => {
+    let q;
+    try { q = indexedDB.open(FS_DB, 1); } catch (e) { rej(e); return; }
+    q.onupgradeneeded = () => {
+      if (!q.result.objectStoreNames.contains(FS_STORE)) q.result.createObjectStore(FS_STORE);
+    };
+    q.onsuccess = () => res(q.result);
+    q.onerror = () => rej(q.error);
+  });
+}
+
+async function fsPut(key, val) {
+  const db = await fsOpen();
+  await new Promise((res, rej) => {
+    const tx = db.transaction(FS_STORE, "readwrite");
+    tx.objectStore(FS_STORE).put(val, key);
+    tx.oncomplete = res;
+    tx.onerror = () => rej(tx.error);
+  });
+  db.close();
+}
+
+async function fsGet(key) {
+  const db = await fsOpen();
+  const val = await new Promise((res, rej) => {
+    const tx = db.transaction(FS_STORE, "readonly");
+    const q = tx.objectStore(FS_STORE).get(key);
+    q.onsuccess = () => res(q.result);
+    q.onerror = () => rej(q.error);
+  });
+  db.close();
+  return val;
+}
+
+/* segments -> { dir, name } when the file sits in prompts/<model>/ (or <model>/ if
+   the prompts folder itself was picked). Anything else is ignored. */
+function bucketOf(segments) {
+  const name = segments[segments.length - 1];
+  const dir = String(segments[segments.length - 2] || "").toLowerCase();
+  if (!name || !PROMPT_EXT.test(name)) return null;
+  if (!MODELS.includes(dir)) return null;
+  return { dir, name };
+}
+
+async function walkDir(handle, path, out) {
+  if (out.length > MAX_FILES) return;
+  for await (const [name, child] of handle.entries()) {
+    if (name.startsWith(".")) continue;
+    const next = path.concat(name);
+    if (child.kind === "directory") {
+      if (next.length < 4) await walkDir(child, next, out);
+    } else if (out.length < MAX_FILES) {
+      out.push({ segments: next, handle: child });
+    }
+  }
+}
+
+function commitLocal(entries) {
+  const buckets = {};
+  for (const e of entries) (buckets[e.dir] = buckets[e.dir] || []).push(e.entry);
+  for (const k of Object.keys(buckets)) buckets[k].sort((a, b) => a.title.localeCompare(b.title));
+
+  LOCAL = buckets;
+  saveLocalCache();
+
+  const total = entries.length;
+  refreshCounts();
+  if (openTile && openTile.dir) renderModel(openTile);
+  return total;
+}
+
+async function scanHandle() {
+  if (!LOCAL_HANDLE) return -1;
+  const files = [];
+  await walkDir(LOCAL_HANDLE, [], files);
+
+  const entries = [];
+  for (const f of files) {
+    const b = bucketOf(f.segments);
+    if (!b) continue;
+    try {
+      const file = await f.handle.getFile();
+      const raw = await file.text();
+      if (!raw.trim()) continue;
+      entries.push({ dir: b.dir, entry: parseFile(b.name, raw) });
+    } catch {}
+  }
+  return commitLocal(entries);
+}
+
+const localInput = document.createElement("input");
+localInput.type = "file";
+localInput.multiple = true;
+localInput.webkitdirectory = true;
+localInput.hidden = true;
+document.body.appendChild(localInput);
+
+localInput.addEventListener("change", async () => {
+  const entries = [];
+  for (const f of localInput.files) {
+    const b = bucketOf(String(f.webkitRelativePath || f.name).split("/"));
+    if (!b) continue;
+    try {
+      const raw = await f.text();
+      if (!raw.trim()) continue;
+      entries.push({ dir: b.dir, entry: parseFile(b.name, raw) });
+    } catch {}
+  }
+  const n = commitLocal(entries);
+  flashPick(n > 0 ? `${n} prompt${n === 1 ? "" : "s"}` : "nothing found", n === 0);
+  localInput.value = "";
+});
+
+let pickTimer = 0;
+function flashPick(text, bad) {
+  const btn = document.getElementById("pick");
+  const label = document.getElementById("pickLabel");
+  if (!btn || !label) return;
+  clearTimeout(pickTimer);
+  btn.classList.toggle("stale", !!bad);
+  label.textContent = text;
+  pickTimer = setTimeout(() => {
+    btn.classList.remove("stale");
+    label.textContent = LOCAL ? "reload folder" : "load folder";
+  }, 2200);
+}
+
+async function scanAndFlash() {
+  const n = await scanHandle();
+  flashPick(n > 0 ? `${n} prompt${n === 1 ? "" : "s"}` : "nothing found", n === 0);
+}
+
+async function pickFolder() {
+  if (LOCAL_HANDLE) {
+    try {
+      const state = await LOCAL_HANDLE.requestPermission({ mode: "read" });
+      if (state === "granted") { await scanAndFlash(); return; }
+    } catch {}
+  }
+
+  if (typeof window.showDirectoryPicker === "function") {
+    try {
+      const handle = await window.showDirectoryPicker({ id: "cortex-prompts", mode: "read" });
+      LOCAL_HANDLE = handle;
+      LOCAL_DIR = handle.name || "";
+      try { await fsPut("dir", handle); } catch {}
+      await scanAndFlash();
+      return;
+    } catch (e) {
+      if (e && e.name === "AbortError") return;
+      /* no picker permission: fall back to the folder input below */
+    }
+  }
+
+  localInput.click();
+}
+
+async function initLocal() {
+  if (!localMode()) return;
+
+  const btn = document.getElementById("pick");
+  if (btn) btn.hidden = false;
+
+  loadLocalCache();
+  if (LOCAL) {
+    refreshCounts();
+    if (openTile && openTile.dir) renderModel(openTile);
+    const label = document.getElementById("pickLabel");
+    if (label) label.textContent = "reload folder";
+  }
+
+  try {
+    const handle = await fsGet("dir");
+    if (!handle) return;
+    LOCAL_HANDLE = handle;
+    LOCAL_DIR = handle.name || LOCAL_DIR;
+    const state = await handle.queryPermission({ mode: "read" });
+    if (state === "granted") await scanHandle();
+    else if (btn) btn.classList.add("stale");
+  } catch {}
+}
+
+const pickBtn = document.getElementById("pick");
+if (pickBtn) pickBtn.addEventListener("click", pickFolder);
+
+/* ------------------------------------------------------------------
+   Data access
+------------------------------------------------------------------ */
+function listFor(dir) {
+  if (SYNC) return SYNC[dir] || [];
+  if (LOCAL) return LOCAL[dir] || [];
+  return PROMPTS[dir] || [];
+}
+
+/* ------------------------------------------------------------------
+   Board
+------------------------------------------------------------------ */
+const board     = document.getElementById("board");
+const scrim     = document.getElementById("scrim");
+const panel     = document.getElementById("panel");
+const panelName = document.getElementById("panelName");
+const panelKick = document.getElementById("panelKick");
+const panelBody = document.getElementById("panelBody");
+const panelIcon = document.getElementById("panelIcon");
+const closeBtn  = document.getElementById("closeBtn");
+
+const buttons = [];
+let openTile = null;
+
+TILES.forEach((t, i) => {
+  const b = document.createElement("button");
+  b.className = "tile";
+  b.type = "button";
+  b.style.setProperty("--i", i);
+  if (t.brand) b.style.setProperty("--hc", t.brand);
+  b.setAttribute("aria-label", t.label);
+
+  const visual = t.img
+    ? `<img class="logo-img" src="${t.img}" alt="">`
+    : t.mark
+      ? `<span class="logo" style="color:${t.brand}">${t.mark}</span>`
+      : `<svg class="ico" viewBox="0 0 24 24" aria-hidden="true">${I[t.icon] || I.info}</svg>`;
+
+  b.innerHTML = `
+    ${visual}
+    <span class="idx">${String(i + 1).padStart(2, "0")}</span>
+    ${t.dir ? `<span class="count" data-count="${t.dir}"></span>` : ""}
+    <span class="label">${t.label}</span>`;
+
+  b.addEventListener("click", e => {
+    const r = b.getBoundingClientRect();
+    const dot = document.createElement("span");
+    dot.className = "ripple";
+    dot.style.left = (e.detail ? e.clientX - r.left : r.width / 2) + "px";
+    dot.style.top = (e.detail ? e.clientY - r.top : r.height / 2) + "px";
+    b.appendChild(dot);
+    dot.addEventListener("animationend", () => dot.remove());
+    openPanel(t);
+  });
+  board.appendChild(b);
+  buttons.push(b);
+});
+
+// plate sheen follows the cursor
+board.addEventListener("pointermove", e => {
+  const tile = e.target.closest(".tile");
+  if (!tile) return;
+  const r = tile.getBoundingClientRect();
+  tile.style.setProperty("--mx", ((e.clientX - r.left) / r.width * 100).toFixed(1) + "%");
+  tile.style.setProperty("--my", ((e.clientY - r.top) / r.height * 100).toFixed(1) + "%");
+}, { passive: true });
+
+function refreshCounts() {
+  document.querySelectorAll("[data-count]").forEach(el => {
+    const n = listFor(el.dataset.count).length;
+    el.textContent = n ? `${n} prompt${n === 1 ? "" : "s"}` : "";
+  });
+}
+
+/* ------------------------------------------------------------------
+   Panel
+------------------------------------------------------------------ */
+let lastFocus = null;
+
+function esc(s) {
+  return String(s).replace(/[&<>"']/g, c => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+  }[c]));
+}
+
+const COPY_ICON = `<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="1.6"/><path d="M15 5.5A1.5 1.5 0 0 0 13.5 4H5.5A1.5 1.5 0 0 0 4 5.5v8A1.5 1.5 0 0 0 5.5 15"/></svg>`;
+const DL_ICON = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11"/><path d="m8 11 4 4 4-4"/><path d="M5 19h14"/></svg>`;
+const CHEV_ICON = `<svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>`;
+
+function cardHTML(p, i) {
+  const flat = p.text.replace(/\s+/g, " ");
+  const preview = flat.slice(0, 160);
+  const lines = p.text.split("\n").length;
+  const chars = p.text.length;
+  const size = chars >= 1000 ? (chars / 1000).toFixed(1) + "k" : String(chars);
+  return `
+  <div class="card" data-card style="--ci:${i}">
+    <div class="card-head" data-toggle>
+      <button class="copy dl" type="button" data-download aria-label="Download prompt" title="Download as .md">${DL_ICON}<span>save</span></button>
+      <button class="copy" type="button" data-copy aria-label="Copy prompt">${COPY_ICON}<span>copy</span></button>
+      <div class="card-main">
+        <span class="card-title">${esc(p.title)}</span>
+        <span class="card-sub">${esc(preview)}${flat.length > 160 ? "\u2026" : ""}</span>
+      </div>
+      <span class="card-meta" title="${chars} characters">${size} ch</span>
+      <button class="chev-btn" type="button" aria-label="Toggle prompt" aria-expanded="false">${CHEV_ICON}</button>
+    </div>
+    <div class="card-body">
+      <div class="card-body-in">
+        <pre class="prompt-text">${esc(p.text)}</pre>
+        <div class="card-foot">
+          <span>${lines} line${lines === 1 ? "" : "s"} \u00b7 ${chars.toLocaleString("en-US")} characters</span>
+          ${p.file ? `<span class="card-file">${esc(p.file)}</span>` : ""}
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
+
+function renderModel(t) {
+  const list = listFor(t.dir);
+  panelKick.textContent = `${t.kick} \u00b7 ${list.length} prompt${list.length === 1 ? "" : "s"}`;
+
+  if (!list.length) {
+    panelBody.innerHTML = `<div class="empty">
+      Nothing in <code>prompts/${t.dir}/</code>.<br><br>
+      ${localMode()
+        ? `Press <b>load folder</b> top right and pick this folder once.`
+        : `Add a <code>.md</code> file there and push.`}
+      ${SYNC_ERR ? `<br><br><span style="color:#7a2b1b">${esc(SYNC_ERR)}</span>` : ""}</div>`;
+    return;
+  }
+
+  panelBody.innerHTML = `<div class="cards">${list.map((p, i) => cardHTML(p, i)).join("")}</div>`;
+}
+
+function openPanel(t) {
+  lastFocus = document.activeElement;
+  openTile = t;
+
+  panelIcon.innerHTML = t.img
+    ? `<img class="pmark-img" src="${t.img}" alt="">`
+    : t.mark
+      ? `<span class="pmark" style="color:${t.brand}">${t.mark}</span>`
+      : `<svg class="pico" viewBox="0 0 24 24" aria-hidden="true">${I[t.icon] || I.info}</svg>`;
+
+  panelName.textContent = t.label;
+  panelKick.textContent = t.kick || "";
+  panelBody.style.setProperty("--hc", t.brand || "#f70204");
+  panel.style.setProperty("--hc", t.brand || "#f70204");
+  panel.classList.toggle("wide", Boolean(t.dir));
+
+  if (t.dir) renderModel(t);
+  else panelBody.innerHTML = t.body + `<div class="slot">content slot - drop your notes here</div>`;
+  panelBody.scrollTop = 0;
+
+  scrim.hidden = false;
+  void scrim.offsetWidth;               // force reflow so the transition runs
+
+  // grow the panel out of the plate that was clicked
+  const btn = buttons[TILES.indexOf(t)];
+  if (btn) {
+    const r = btn.getBoundingClientRect();
+    const w = panel.offsetWidth || 1;
+    const h = panel.offsetHeight || 1;
+    const ox = (r.left + r.width / 2 - (innerWidth - w) / 2) / w * 100;
+    const oy = (r.top + r.height / 2 - (innerHeight - h) / 2) / h * 100;
+    panel.style.setProperty("--ox", Math.max(0, Math.min(100, ox)).toFixed(1) + "%");
+    panel.style.setProperty("--oy", Math.max(0, Math.min(100, oy)).toFixed(1) + "%");
+  }
+
+  scrim.classList.add("open");
+  closeBtn.focus();
+  document.body.style.overflow = "hidden";
+}
+
+function closePanel() {
+  openTile = null;
+  scrim.classList.remove("open");
+  document.body.style.overflow = "";
+  setTimeout(() => {
+    if (!scrim.classList.contains("open")) scrim.hidden = true;
+  }, 470);
+  if (lastFocus) lastFocus.focus();
+}
+
+/* ------------------------------------------------------------------
+   Copy + expand
+------------------------------------------------------------------ */
+async function copyText(text) {
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch {
+    const ta = document.createElement("textarea");
+    ta.value = text;
+    ta.style.position = "fixed";
+    ta.style.top = "-1000px";
+    ta.style.opacity = "0";
+    document.body.appendChild(ta);
+    ta.select();
+    let ok = false;
+    try { ok = document.execCommand("copy"); } catch { ok = false; }
+    ta.remove();
+    return ok;
+  }
+}
+
+function toggleCard(card) {
+  const open = card.classList.toggle("open");
+  const btn = card.querySelector(".chev-btn");
+  if (btn) btn.setAttribute("aria-expanded", String(open));
+}
+
+function slugify(s) {
+  return String(s).toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 60) || "prompt";
+}
+
+function downloadPrompt(card) {
+  const title = card.querySelector(".card-title").textContent.trim() || "Prompt";
+  const text = card.querySelector(".prompt-text").textContent;
+  const body = `---\ntitle: ${title}\n---\n\n${text}\n`;
+
+  const blob = new Blob([body], { type: "text/markdown;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = slugify(title) + ".md";
+  a.rel = "noopener";
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 10000);
+  return a.download;
+}
+
+function flashLabel(btn, text, label, ok = true) {
+  btn.classList.toggle("done", ok);
+  btn.querySelector("span").textContent = text;
+  setTimeout(() => {
+    btn.classList.remove("done");
+    btn.querySelector("span").textContent = label;
+  }, 1400);
+}
+
+panelBody.addEventListener("click", async e => {
+  const dlBtn = e.target.closest("[data-download]");
+  if (dlBtn) {
+    e.stopPropagation();
+    try {
+      downloadPrompt(dlBtn.closest(".card"));
+      flashLabel(dlBtn, "saved", "save");
+    } catch {
+      flashLabel(dlBtn, "failed", "save", false);
+    }
+    return;
+  }
+
+  const copyBtn = e.target.closest("[data-copy]");
+  if (copyBtn) {
+    e.stopPropagation();
+    const card = copyBtn.closest(".card");
+    const text = card.querySelector(".prompt-text").textContent;
+    const ok = await copyText(text);
+    flashLabel(copyBtn, ok ? "copied" : "failed", "copy", ok);
+    return;
+  }
+
+  const head = e.target.closest("[data-toggle]");
+  if (head) toggleCard(head.closest(".card"));
+});
+
+/* ------------------------------------------------------------------
+   Wire up
+------------------------------------------------------------------ */
+closeBtn.addEventListener("click", closePanel);
+scrim.addEventListener("click", e => { if (e.target === scrim) closePanel(); });
+
+document.addEventListener("keydown", e => {
+  if (e.key === "Escape" && scrim.classList.contains("open")) { closePanel(); return; }
+  if (scrim.classList.contains("open")) return;
+
+  const at = buttons.indexOf(document.activeElement);
+  if (at === -1) return;
+
+  const move = { ArrowRight:1, ArrowLeft:-1, ArrowDown:3, ArrowUp:-3 }[e.key];
+  if (move === undefined) return;
+  e.preventDefault();
+
+  const next = at + move;
+  if (next >= 0 && next < buttons.length) buttons[next].focus();
+  else if (e.key === "ArrowRight" || e.key === "ArrowDown") buttons[0].focus();
+  else buttons[buttons.length - 1].focus();
+});
+
+/* boot */
+loadLocalCache();
+refreshCounts();
+initLocal();
+loadPrompts().then(() => {
+  refreshCounts();
+  if (openTile && openTile.dir) renderModel(openTile);
+});
+</script>
+</body>
+</html>
+
+
+
+
