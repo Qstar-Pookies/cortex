@@ -182,6 +182,21 @@
     filter:invert(1) drop-shadow(0 0 12px #fff);
   }
 
+  /* ---------- coming soon ---------- */
+  .tile .soon-x{
+    position:absolute;inset:0;z-index:2;display:none;pointer-events:none;
+    color:var(--hc,var(--accent));background:rgba(7,7,9,.42);
+  }
+  .tile.soon .soon-x{display:block}
+  .tile .soon-x svg{
+    position:absolute;inset:12%;width:76%;height:76%;
+    stroke:currentColor;stroke-width:1.7;fill:none;stroke-linecap:round;
+    filter:drop-shadow(0 0 7px currentColor);
+    transition:transform .35s cubic-bezier(.2,.7,.3,1);
+  }
+  .tile.soon:hover .soon-x svg,
+  .tile.soon:focus-visible .soon-x svg{transform:scale(1.05)}
+
   /* ---------- modal ---------- */
   .scrim{
     position:fixed;inset:0;display:grid;place-items:center;padding:24px;
@@ -436,6 +451,31 @@
   .legal-body hr{border:0;border-top:1px solid var(--line);margin:20px 0}
   .legal-body .fine{color:#6f6f7a;font-size:10.5px;line-height:1.8}
 
+  /* ---------- toast ---------- */
+  .toast{
+    position:fixed;left:50%;bottom:28px;z-index:80;
+    display:flex;align-items:center;gap:12px;
+    padding:13px 17px;max-width:calc(100vw - 32px);
+    border:1px solid var(--line-hi);border-radius:12px;
+    background:linear-gradient(180deg,#0d0d12,#09090c);
+    box-shadow:0 24px 60px -20px #000, 0 0 0 1px #000;
+    font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;
+    color:var(--text);
+    opacity:0;transform:translate(-50%,18px);pointer-events:none;
+    transition:opacity .24s ease,transform .4s cubic-bezier(.2,.7,.3,1);
+  }
+  .toast.show{opacity:1;transform:translate(-50%,0)}
+  .toast .dot{
+    width:7px;height:7px;flex:0 0 auto;border-radius:50%;
+    background:var(--hc,var(--accent));
+    box-shadow:0 0 10px var(--hc,var(--accent));
+  }
+  .toast .t-main{font-weight:600;letter-spacing:.2em}
+  .toast .t-sub{
+    display:block;margin-top:4px;font-size:8.5px;letter-spacing:.14em;
+    color:var(--muted);font-weight:400;
+  }
+
   /* ==================================================================
      INTRO
      ================================================================== */
@@ -589,6 +629,7 @@
     .card.open .prompt-text{animation:none}
     .panel::after{animation:none}
     .ripple{display:none}
+    .soon-x svg,.toast{transition:none}
   }
 </style>
 </head>
@@ -818,6 +859,11 @@
   </div>
 </div>
 
+<div class="toast" id="toast" role="status" aria-live="polite" aria-atomic="true">
+  <span class="dot" aria-hidden="true"></span>
+  <span><span class="t-main">Coming Soon</span><span class="t-sub" id="toastSub"></span></span>
+</div>
+
 <script>
 /* ==================================================================
    CONFIG
@@ -1009,6 +1055,7 @@ let SYNC = null;
 let SYNC_AT = 0;
 let SYNC_ERR = "";
 let BRANCH = "";
+let SOON = new Set();
 
 /* ------------------------------------------------------------------
    Repo detection
@@ -1117,7 +1164,17 @@ async function loadPrompts() {
 
   try {
     const files = await listRepoFiles(info);
-    const targets = files.filter(p => FILE_RE.test(p) && MODELS.includes(p.match(FILE_RE)[1].toLowerCase()));
+
+    SOON = new Set();
+    for (const p of files) {
+      const m = p.match(/^prompts\/([^/]+)\/soon\.md$/i);
+      if (m && MODELS.includes(m[1].toLowerCase())) SOON.add(m[1].toLowerCase());
+    }
+
+    const targets = files.filter(p =>
+      FILE_RE.test(p) &&
+      !/\/soon\.md$/i.test(p) &&
+      MODELS.includes(p.match(FILE_RE)[1].toLowerCase()));
 
     const buckets = {};
     const results = await Promise.allSettled(targets.map(async p => {
@@ -1141,7 +1198,7 @@ async function loadPrompts() {
     SYNC_ERR = "";
 
     try {
-      localStorage.setItem(SKEY, JSON.stringify({ at: SYNC_AT, repo: info.repo, data: SYNC }));
+      localStorage.setItem(SKEY, JSON.stringify({ at: SYNC_AT, repo: info.repo, data: SYNC, soon: [...SOON] }));
     } catch {}
 
     return true;
@@ -1158,6 +1215,7 @@ try {
   if (c && info && c.repo === info.repo && c.data) {
     SYNC = c.data;
     SYNC_AT = c.at || 0;
+    SOON = new Set(Array.isArray(c.soon) ? c.soon : []);
   }
 } catch {}
 
@@ -1190,13 +1248,14 @@ function loadLocalCache() {
     if (c && c.data && Object.keys(c.data).length) {
       LOCAL = c.data;
       LOCAL_DIR = c.dir || "";
+      SOON = new Set(Array.isArray(c.soon) ? c.soon : []);
     }
   } catch {}
 }
 
 function saveLocalCache() {
   try {
-    localStorage.setItem(LOCAL_KEY, JSON.stringify({ at: Date.now(), dir: LOCAL_DIR, data: LOCAL }));
+    localStorage.setItem(LOCAL_KEY, JSON.stringify({ at: Date.now(), dir: LOCAL_DIR, data: LOCAL, soon: [...SOON] }));
   } catch {}
 }
 
@@ -1258,12 +1317,13 @@ async function walkDir(handle, path, out) {
   }
 }
 
-function commitLocal(entries) {
+function commitLocal(entries, soon) {
   const buckets = {};
   for (const e of entries) (buckets[e.dir] = buckets[e.dir] || []).push(e.entry);
   for (const k of Object.keys(buckets)) buckets[k].sort((a, b) => a.title.localeCompare(b.title));
 
   LOCAL = buckets;
+  SOON = soon instanceof Set ? soon : new Set();
   saveLocalCache();
 
   const total = entries.length;
@@ -1278,9 +1338,11 @@ async function scanHandle() {
   await walkDir(LOCAL_HANDLE, [], files);
 
   const entries = [];
+  const soon = new Set();
   for (const f of files) {
     const b = bucketOf(f.segments);
     if (!b) continue;
+    if (b.name.toLowerCase() === "soon.md") { soon.add(b.dir); continue; }
     try {
       const file = await f.handle.getFile();
       const raw = await file.text();
@@ -1288,7 +1350,7 @@ async function scanHandle() {
       entries.push({ dir: b.dir, entry: parseFile(b.name, raw) });
     } catch {}
   }
-  return commitLocal(entries);
+  return commitLocal(entries, soon);
 }
 
 const localInput = document.createElement("input");
@@ -1300,16 +1362,18 @@ document.body.appendChild(localInput);
 
 localInput.addEventListener("change", async () => {
   const entries = [];
+  const soon = new Set();
   for (const f of localInput.files) {
     const b = bucketOf(String(f.webkitRelativePath || f.name).split("/"));
     if (!b) continue;
+    if (b.name.toLowerCase() === "soon.md") { soon.add(b.dir); continue; }
     try {
       const raw = await f.text();
       if (!raw.trim()) continue;
       entries.push({ dir: b.dir, entry: parseFile(b.name, raw) });
     } catch {}
   }
-  const n = commitLocal(entries);
+  const n = commitLocal(entries, soon);
   flashPick(n > 0 ? `${n} prompt${n === 1 ? "" : "s"}` : "nothing found", n === 0);
   localInput.value = "";
 });
@@ -1412,6 +1476,21 @@ const closeBtn  = document.getElementById("closeBtn");
 const buttons = [];
 let openTile = null;
 
+/* ------------------------------------------------------------------
+   Coming-soon toast
+------------------------------------------------------------------ */
+const toastEl  = document.getElementById("toast");
+const toastSub = document.getElementById("toastSub");
+let toastTimer = 0;
+
+function notifySoon(t) {
+  toastEl.style.setProperty("--hc", t.brand || "#f70204");
+  toastSub.textContent = t.label || "";
+  toastEl.classList.add("show");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => toastEl.classList.remove("show"), 2800);
+}
+
 TILES.forEach((t, i) => {
   const b = document.createElement("button");
   b.className = "tile" + (t.theme ? " " + t.theme : "");
@@ -1430,7 +1509,8 @@ TILES.forEach((t, i) => {
     ${visual}
     <span class="idx">${String(i + 1).padStart(2, "0")}</span>
     ${t.dir ? `<span class="count" data-count="${t.dir}"></span>` : ""}
-    <span class="label">${t.label}</span>`;
+    <span class="label">${t.label}</span>
+    ${t.dir ? `<span class="soon-x" aria-hidden="true"><svg viewBox="0 0 100 100" preserveAspectRatio="none"><path d="M12 12 88 88M88 12 12 88"/></svg></span>` : ""}`;
 
   b.addEventListener("click", e => {
     const r = b.getBoundingClientRect();
@@ -1440,6 +1520,8 @@ TILES.forEach((t, i) => {
     dot.style.top = (e.detail ? e.clientY - r.top : r.height / 2) + "px";
     b.appendChild(dot);
     dot.addEventListener("animationend", () => dot.remove());
+
+    if (t.dir && SOON.has(t.dir)) { notifySoon(t); return; }
     openPanel(t);
   });
   board.appendChild(b);
@@ -1458,7 +1540,20 @@ board.addEventListener("pointermove", e => {
 function refreshCounts() {
   document.querySelectorAll("[data-count]").forEach(el => {
     const n = listFor(el.dataset.count).length;
-    el.textContent = n ? `${n} prompt${n === 1 ? "" : "s"}` : "";
+    el.textContent = SOON.has(el.dataset.count)
+      ? "coming soon"
+      : n ? `${n} prompt${n === 1 ? "" : "s"}` : "";
+  });
+  refreshSoon();
+}
+
+function refreshSoon() {
+  TILES.forEach((t, i) => {
+    const b = buttons[i];
+    if (!b || !t.dir) return;
+    const soon = SOON.has(t.dir);
+    b.classList.toggle("soon", soon);
+    b.setAttribute("aria-label", soon ? `${t.label} - coming soon` : t.label);
   });
 }
 
