@@ -1,4 +1,4 @@
-﻿<!doctype html>
+<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -86,8 +86,6 @@
     transition:background .25s ease,border-color .25s ease,box-shadow .35s ease,
                transform .35s cubic-bezier(.2,.7,.3,1);
   }
-  .tile:nth-child(4){grid-column:2/span 2;grid-row:2}
-  .tile:nth-child(5){grid-column:4/span 2;grid-row:2}
 
   /* cursor-tracking sheen, kept under the content */
   .tile::before{
@@ -171,6 +169,33 @@
   @keyframes ripple{
     to{transform:translate(-50%,-50%) scale(34);opacity:0}
   }
+
+  /* ---------- arena: the white plate ---------- */
+  .tile.light{
+    background:#f3f3f6;border-color:#e1e1e7;--tile-hi:#ffffff;
+    color:#101014;
+  }
+  .tile.light::before{
+    background:radial-gradient(190px circle at var(--mx) var(--my),
+      rgba(0,0,0,.1), transparent 72%);
+  }
+  .tile.light .label{color:#55555f}
+  .tile.light .idx{color:#b4b4be}
+  .tile.light .count{color:#9b9ba5}
+  .tile.light:hover,.tile.light:focus-visible{
+    background:#fff;border-color:#101014;
+    box-shadow:0 24px 50px -28px rgba(0,0,0,.9),
+               0 0 22px -12px rgba(0,0,0,.45);
+  }
+  .tile.light:hover .label,.tile.light:focus-visible .label{color:#101014}
+  .tile.light:hover .idx,.tile.light:focus-visible .idx{color:#101014}
+  .tile.light:hover .count,.tile.light:focus-visible .count{color:#6b6b75}
+  .tile.light:hover .logo-img,.tile.light:focus-visible .logo-img{
+    filter:drop-shadow(0 0 10px rgba(0,0,0,.35));
+  }
+  .tile.light::after{border-color:#101014}
+  .tile.light:focus-visible{outline-color:#101014}
+  .tile.light .ripple{background:#101014;opacity:.16}
 
   /* ---------- modal ---------- */
   .scrim{
@@ -391,6 +416,61 @@
     transition:border-color .2s ease,color .2s ease;
   }
   .empty-pick:hover,.empty-pick:focus-visible{border-color:var(--accent);color:#fff}
+
+  /* ---------- arena panel: white theme ---------- */
+  .panel.light{
+    background:linear-gradient(180deg,#ffffff,#f5f5f8);
+    border-color:#d7d7df;
+    box-shadow:0 0 0 1px rgba(0,0,0,.05), 0 60px 140px -40px rgba(0,0,0,.6);
+  }
+  .panel.light .panel-head{border-bottom-color:#e8e8ee}
+  .panel.light .panel-head h2{color:#101014}
+  .panel.light .panel-head .kick{color:#8a8a94}
+  .panel.light .close{border-color:#dedee5;color:#66666f}
+  .panel.light .close:hover{border-color:#101014;color:#101014;background:#f0f0f3}
+  .panel.light .panel-body{color:#3c3c45;scrollbar-color:#c7c7d0 transparent}
+  .panel.light .panel-body::-webkit-scrollbar-thumb{
+    background:#c7c7d0;background-clip:content-box;
+  }
+  .panel.light .panel-body::-webkit-scrollbar-thumb:hover{
+    background:#a8a8b2;background-clip:content-box;
+  }
+  .panel.light .panel-body code{color:#101014;background:#ececf1}
+  .panel.light .card{background:#fafafb;border-color:#e6e6ec}
+  .panel.light .card:hover{background:#fff;border-color:#d2d2db}
+  .panel.light .card.open{
+    background:#fff;border-color:#c9c9d3;
+    box-shadow:0 14px 34px -26px rgba(0,0,0,.35);
+  }
+  .panel.light .card-title{color:#15151b}
+  .panel.light .card.open .card-title{color:#000}
+  .panel.light .card-meta{color:#9fa0aa}
+  .panel.light .card-sub{color:#82828c}
+  .panel.light .copy{border-color:#dedee5;background:#fff;color:#66666f}
+  .panel.light .copy:hover{border-color:#101014;color:#fff;background:#101014}
+  .panel.light .copy.done{border-color:#2f8f52;color:#2f8f52;background:#effaf2}
+  .panel.light .card-head:hover .chev-btn{border-color:#dedee5;background:#f2f2f5}
+  .panel.light .chev{stroke:#82828c}
+  .panel.light .card.open .chev{stroke:#101014}
+  .panel.light .prompt-text{
+    background:#f4f4f7;border-color:#e4e4ea;color:#2e2e36;
+    scrollbar-color:#c7c7d0 transparent;
+  }
+  .panel.light .prompt-text::-webkit-scrollbar-thumb{
+    background:#c7c7d0;background-clip:content-box;
+  }
+  .panel.light .prompt-text::-webkit-scrollbar-thumb:hover{
+    background:#a8a8b2;background-clip:content-box;
+  }
+  .panel.light .card-foot{color:#82828c}
+  .panel.light .card-file{color:#95959f}
+  .panel.light .empty{border-color:#d8d8e1;color:#77777f}
+  .panel.light .empty b{color:#3c3c45}
+  .panel.light .empty code{color:#101014;background:#ececf1}
+  .panel.light .empty-pick{border-color:#d8d8e1;color:#101014}
+  .panel.light .empty-pick:hover,.panel.light .empty-pick:focus-visible{
+    border-color:#101014;color:#000;background:#f2f2f5;
+  }
 
   /* ---------- terms ---------- */
   .legal-panel{width:min(720px,100%);max-height:min(86vh,780px)}
@@ -723,7 +803,7 @@
       <h3><span class="n">08</span>Copyright complaints</h3>
       <p>
         If you believe something on this site infringes your copyright, write to
-        <b>[CONTACT EMAIL]</b> with: your name and contact details, the work you own, the exact
+        <b>cortexjb@proton.me</b> with: your name and contact details, the work you own, the exact
         URL or file on this site, a statement that you have a good-faith belief the use is
         unauthorised, a statement that the information is accurate, and your signature. We
         will review it and remove or disable access to material that appears to infringe.
@@ -814,8 +894,8 @@
    On <user>.github.io/<repo> this is detected automatically.
    Only fill these in if you open the file some other way.
    ================================================================== */
-const GITHUB_OWNER = "";
-const GITHUB_REPO  = "";
+const GITHUB_OWNER = "Qstar-Pookies";
+const GITHUB_REPO  = "cortex.github.io";
 const BRANCH_FALLBACK = ["main", "master"];
 
 /* Built-in prompts. Shown when the repo can't be read. */
@@ -925,7 +1005,8 @@ const TILES = [
   { id:"deepseek", label:"DeepSeek", kick:"DeepSeek AI", brand:"#4d6bfe", img:"assets/deepseek.png", dir:"deepseek" },
   { id:"gemini", label:"Gemini", kick:"Google DeepMind", brand:"#4a90e2", img:"assets/gemini.png", dir:"gemini" },
   { id:"grok", label:"Grok", kick:"xAI", brand:"#e6e6e6", img:"assets/grok.png", dir:"grok" },
-  { id:"opencode", label:"OpenCode", kick:"Agent harness", brand:"#ff5c39", img:"assets/opencode.png", dir:"opencode" }
+  { id:"opencode", label:"OpenCode", kick:"Agent harness", brand:"#ff5c39", img:"assets/opencode.png", dir:"opencode" },
+  { id:"arena", label:"Arena AI", kick:"Arena AI", brand:"#ffffff", theme:"light", img:"assets/arena.png", dir:"arena" }
 ];
 
 /* ==================================================================
@@ -1403,7 +1484,7 @@ let openTile = null;
 
 TILES.forEach((t, i) => {
   const b = document.createElement("button");
-  b.className = "tile";
+  b.className = "tile" + (t.theme ? " " + t.theme : "");
   b.type = "button";
   b.style.setProperty("--i", i);
   if (t.brand) b.style.setProperty("--hc", t.brand);
@@ -1526,9 +1607,11 @@ function openPanel(t) {
 
   panelName.textContent = t.label;
   panelKick.textContent = t.kick || "";
-  panelBody.style.setProperty("--hc", t.brand || "#f70204");
-  panel.style.setProperty("--hc", t.brand || "#f70204");
+  const accent = t.theme === "light" ? "#101014" : (t.brand || "#f70204");
+  panelBody.style.setProperty("--hc", accent);
+  panel.style.setProperty("--hc", accent);
   panel.classList.toggle("wide", Boolean(t.dir));
+  panel.classList.toggle("light", t.theme === "light");
 
   if (t.dir) renderModel(t);
   else panelBody.innerHTML = t.body + `<div class="slot">content slot - drop your notes here</div>`;
