@@ -24,7 +24,8 @@ const MODELS = new Set([
   "google/gemma-4-31b-it",
   "nvidia/nemotron-3.5-lightning-30b-a3b",
   "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning",
-  "nvidia/nemotron-3.5-super-vl-120b-a12b"
+  "nvidia/nemotron-3.5-super-vl-120b-a12b",
+  "mistralai/mistral-large-4-1t-a52b",
 ]);
 
 const MIME = {
