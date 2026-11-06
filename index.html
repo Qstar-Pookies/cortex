@@ -866,13 +866,22 @@
 
 <script>
 /* ==================================================================
-   CONFIG
-   On <user>.github.io/<repo> this is detected automatically.
-   Only fill these in if you open the file some other way.
+   PROMPT SOURCE
+   ------------------------------------------------------------------
+   Prompts are ALWAYS read from this repo, no matter where this page
+   is hosted (GitHub Pages, Netlify, Vercel, a VPS, or file://):
+
+     https://github.com/Qstar-Pookies/cortex.github.io/tree/main/prompts
+
+   Change these three constants to point at a different repo. To
+   preview a local prompts/ folder instead, blank OWNER and REPO.
    ================================================================== */
-const GITHUB_OWNER = "Qstar-Pookies";
-const GITHUB_REPO  = "cortex.github.io";
-const BRANCH_FALLBACK = ["main", "master"];
+const GITHUB_OWNER  = "Qstar-Pookies";
+const GITHUB_REPO   = "cortex.github.io";
+const GITHUB_BRANCH = "main";
+
+/* main first; master is only a fallback in case the repo is moved. */
+const BRANCH_FALLBACK = [GITHUB_BRANCH, "master"];
 
 /* Built-in prompts. Shown when the repo can't be read. */
 const PROMPTS = {
@@ -1054,7 +1063,7 @@ const FILE_RE = /^prompts\/([^/]+)\/([^/]+\.(?:md|txt|prompt))$/i;
 let SYNC = null;
 let SYNC_AT = 0;
 let SYNC_ERR = "";
-let BRANCH = "";
+let BRANCH = GITHUB_BRANCH;
 let SOON = new Set();
 
 /* ------------------------------------------------------------------
