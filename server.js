@@ -28,12 +28,8 @@ const KEY = RAW_KEY.trim().replace(/^["']+|["']+$/g, "").trim();
 const UPSTREAM = (process.env.NVIDIA_BASE_URL || "https://integrate.api.nvidia.com/v1").replace(/\/+$/, "");
 
 const MODELS = new Set([
-  "meta/llama-3.2-90b-vision-instruct",
-  "google/gemma-4-31b-it",
-  "nvidia/nemotron-3.5-lightning-30b-a3b",
-  "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning",
-  "nvidia/nemotron-3.5-super-vl-120b-a12b",
-  "mistralai/mistral-large-4-1t-a52b"
+  "mistralai/mistral-large-4-1t-a52b",
+   "deepseek-ai/deepseek-v4.1-flash"
 ]);
 
 const MIME = {
