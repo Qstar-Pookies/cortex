@@ -34,6 +34,7 @@ const UPSTREAM = (process.env.NVIDIA_BASE_URL || "https://integrate.api.nvidia.c
    Override with NVIDIA_MODELS if your NVIDIA account exposes different ids. */
 const DEFAULT_MODELS = [
   "nvidia/nemotron-3-ultra-550b-a55b",
+   "deepseek-ai/deepseek-v4.1-flash"
    
 ];
 const MODELS = new Set(
