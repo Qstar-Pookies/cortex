@@ -739,6 +739,7 @@
   }
   .tab:focus-visible{outline:1px solid var(--accent);outline-offset:2px}
   body[data-tab="ai"] #pick{display:none!important}
+  body[data-tab="scripts"] #pick{display:none!important}
   .view[hidden]{display:none!important}
 
   /* ==================================================================
@@ -1149,6 +1150,275 @@
     font-size:9.5px;color:#33333d;
   }
 
+  /* ==================================================================
+     SCRIPTS
+     ================================================================== */
+  body[data-tab="scripts"] #fx{opacity:.3}
+  body[data-tab="scripts"] .backdrop{opacity:.55}
+  body[data-tab="scripts"] .vignette{opacity:.5}
+  body.script-modal-open{overflow:hidden}
+
+  main.script-view{
+    display:flex;align-items:stretch;
+    padding:0 20px 20px;min-height:0;
+  }
+  .script-shell{
+    flex:1;display:flex;flex-direction:column;min-height:0;overflow:hidden;
+    width:min(1120px,100%);max-width:1120px;margin:0 auto;
+    height:calc(100vh - 98px);max-height:940px;
+    border:1px solid #191920;border-radius:16px;
+    background:
+      radial-gradient(760px 260px at 88% -12%, rgba(247,2,4,.07), transparent 70%),
+      linear-gradient(160deg,#0c0c11,#08080b 58%);
+    box-shadow:0 30px 90px -55px #000;
+  }
+
+  /* ---------- toolbar ---------- */
+  .script-topbar{
+    flex:0 0 auto;display:flex;align-items:center;gap:10px;
+    padding:14px 16px;border-bottom:1px solid #15151b;
+  }
+  .script-search{
+    position:relative;flex:1;min-width:0;display:flex;align-items:center;
+  }
+  .script-search svg{
+    position:absolute;left:13px;width:14px;height:14px;pointer-events:none;
+    fill:none;stroke:#55555f;stroke-width:1.7;stroke-linecap:round;
+  }
+  .script-search input{
+    width:100%;padding:11px 14px 11px 36px;
+    border:1px solid #22222b;border-radius:10px;background:#0d0d12;
+    color:var(--text);font:inherit;font-size:12px;
+    transition:border-color .2s ease,box-shadow .2s ease,background .2s ease;
+  }
+  .script-search input::placeholder{color:#45454f}
+  .script-search input:focus{
+    outline:0;border-color:#3a3a46;background:#0f0f15;
+    box-shadow:0 0 0 3px rgba(247,2,4,.05);
+  }
+  .script-search input::-webkit-search-cancel-button{
+    -webkit-appearance:none;appearance:none;
+  }
+  .script-create{
+    flex:0 0 auto;display:inline-flex;align-items:center;justify-content:center;gap:7px;
+    padding:11px 18px;border:1px solid #2a1416;border-radius:10px;
+    background:linear-gradient(180deg,#1b0c0d,#120809);
+    color:#ffaeaa;font:inherit;font-size:11px;letter-spacing:.05em;
+    cursor:pointer;white-space:nowrap;
+    transition:background .2s ease,border-color .2s ease,color .2s ease,box-shadow .2s ease;
+  }
+  .script-create svg{
+    width:13px;height:13px;fill:none;stroke:currentColor;
+    stroke-width:1.9;stroke-linecap:round;
+  }
+  .script-create:hover,.script-create:focus-visible{
+    background:var(--accent);border-color:var(--accent);color:#fff;
+    box-shadow:0 0 24px -8px rgba(247,2,4,.8);
+  }
+  .script-create:focus-visible{outline:2px solid #ff6a63;outline-offset:2px}
+
+  .script-subbar{
+    flex:0 0 auto;display:flex;align-items:center;justify-content:space-between;
+    gap:12px;padding:8px 18px;border-bottom:1px solid #121217;
+    background:#08080b;font-size:9px;letter-spacing:.11em;
+    text-transform:uppercase;color:#4c4c57;
+  }
+  .script-subbar[hidden]{display:none}
+  .script-subbar b{color:#b9b9c4;font-weight:600}
+  .script-refresh{
+    padding:5px 9px;border:1px solid #22222b;border-radius:7px;
+    background:none;color:#6a6a76;font:inherit;font-size:9px;
+    letter-spacing:.1em;text-transform:uppercase;cursor:pointer;
+    transition:color .2s ease,border-color .2s ease,background .2s ease;
+  }
+  .script-refresh:hover,.script-refresh:focus-visible{
+    color:#e4e4ea;border-color:#35353f;background:#111116;
+  }
+
+  /* ---------- library ---------- */
+  .script-body{flex:1;min-height:0;display:flex;flex-direction:column}
+  .script-list{
+    flex:1;min-height:0;overflow-y:auto;display:grid;
+    grid-template-columns:repeat(2,minmax(0,1fr));
+    gap:12px;padding:16px;align-content:start;
+    scrollbar-width:thin;scrollbar-color:#232329 transparent;
+  }
+  .script-list::-webkit-scrollbar{width:7px}
+  .script-list::-webkit-scrollbar-thumb{background:#232329;border-radius:4px}
+  .script-list:empty{display:none}
+  .script-card{
+    display:flex;flex-direction:column;min-width:0;
+    border:1px solid #1d1d25;border-radius:13px;background:#0b0b10;
+    overflow:hidden;
+    transition:border-color .22s ease,background .22s ease,transform .22s ease,box-shadow .22s ease;
+  }
+  .script-card:hover{
+    border-color:#2c2c37;background:#0d0d13;transform:translateY(-1px);
+    box-shadow:0 18px 44px -34px #000;
+  }
+  .script-card.open{grid-column:1/-1}
+  .script-card-top{
+    display:flex;align-items:flex-start;justify-content:space-between;gap:12px;
+    padding:14px 14px 0;
+  }
+  .script-card-id{display:flex;align-items:flex-start;gap:10px;min-width:0}
+  .script-index{
+    flex:0 0 auto;padding:3px 6px;border:1px solid #24242d;border-radius:5px;
+    font-size:8.5px;color:#4c4c57;font-variant-numeric:tabular-nums;
+  }
+  .script-card h3{
+    margin:0;font-size:12.5px;font-weight:600;color:#e4e4ea;
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  }
+  .script-card .script-meta{margin:3px 0 0;font-size:9.5px;color:#4e4e59}
+  .script-card-actions{display:flex;align-items:center;gap:5px;flex:0 0 auto}
+  .script-card-actions button{
+    padding:5px 9px;border:1px solid #24242d;border-radius:7px;
+    background:none;color:#6a6a76;font:inherit;font-size:9px;
+    letter-spacing:.07em;text-transform:uppercase;cursor:pointer;
+    transition:color .2s ease,border-color .2s ease,background .2s ease;
+  }
+  .script-card-actions button:hover,.script-card-actions button:focus-visible{
+    color:#e4e4ea;border-color:#383842;background:#131319;
+  }
+  .script-summary{
+    margin:0;padding:10px 14px 14px;font-size:10.5px;line-height:1.65;color:#5a5a65;
+  }
+  .script-code{
+    margin:0;padding:0 14px 14px;border-top:1px solid #191920;
+    max-height:320px;overflow:auto;background:#08080b;
+  }
+  .script-code[hidden]{display:none}
+  .script-code code{
+    display:block;padding:12px 0;font-family:var(--mono);font-size:11px;
+    line-height:1.65;color:#bdbdc9;white-space:pre;tab-size:2;
+  }
+  .script-empty{
+    flex:1;min-height:0;display:flex;flex-direction:column;align-items:center;justify-content:center;
+    gap:9px;padding:40px 24px;text-align:center;
+  }
+  .script-empty[hidden]{display:none}
+  .script-empty p{margin:0;font-size:14px;color:#85858f;letter-spacing:.01em}
+  .script-empty span{max-width:460px;font-size:11px;line-height:1.75;color:#45454f}
+  .script-empty code{color:var(--accent-soft)}
+
+  /* ---------- create dialog ---------- */
+  .script-modal{
+    position:fixed;inset:0;z-index:80;display:grid;place-items:center;
+    padding:24px;background:rgba(3,3,5,.78);
+    backdrop-filter:blur(7px);-webkit-backdrop-filter:blur(7px);
+  }
+  .script-modal[hidden]{display:none}
+  .script-modal-card{
+    width:min(720px,100%);max-height:min(88vh,800px);
+    display:flex;flex-direction:column;overflow:hidden;
+    border:1px solid #24242d;border-radius:16px;
+    background:
+      radial-gradient(560px 220px at 100% 0%, rgba(247,2,4,.09), transparent 66%),
+      linear-gradient(160deg,#0d0d12,#08080b 62%);
+    box-shadow:0 60px 140px -45px #000;
+    animation:scriptModalIn .24s cubic-bezier(.2,.7,.3,1);
+  }
+  @keyframes scriptModalIn{from{opacity:0;transform:translateY(14px) scale(.985)}}
+  .script-modal-head{
+    flex:0 0 auto;display:flex;align-items:flex-start;justify-content:space-between;
+    gap:16px;padding:18px 20px 15px;border-bottom:1px solid #16161c;
+  }
+  .script-modal-head h2{
+    margin:0;font-size:16px;font-weight:600;letter-spacing:.01em;color:#ececf2;
+  }
+  .script-kicker{
+    display:block;margin-bottom:6px;font-size:9px;letter-spacing:.18em;
+    text-transform:uppercase;color:#6b3a3c;
+  }
+  .script-modal-close{
+    all:unset;flex:0 0 auto;display:grid;place-items:center;
+    width:30px;height:30px;border:1px solid #26262f;border-radius:8px;
+    color:#6a6a76;font-size:18px;line-height:1;cursor:pointer;
+    transition:color .2s ease,border-color .2s ease,background .2s ease;
+  }
+  .script-modal-close:hover,.script-modal-close:focus-visible{
+    color:#e4e4ea;border-color:#3a3a46;background:#141419;
+  }
+  .script-modal-close:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+  .script-form{
+    flex:1;min-height:0;overflow-y:auto;display:flex;flex-direction:column;
+    gap:12px;padding:18px 20px 20px;
+    scrollbar-width:thin;scrollbar-color:#232329 transparent;
+  }
+  .script-field-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .script-field{display:flex;flex-direction:column;gap:6px;min-width:0}
+  .script-field > span{
+    font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:#5a5a66;
+  }
+  .script-field > span em{font-style:normal;color:#393942;text-transform:none;letter-spacing:0}
+  .script-field input,.script-field textarea{
+    width:100%;border:1px solid #22222b;border-radius:9px;
+    background:#0f0f14;color:var(--text);font:inherit;
+    transition:border-color .2s ease,box-shadow .2s ease;
+  }
+  .script-field input{padding:10px 11px;font-size:12.5px}
+  .script-field textarea{
+    flex:1;min-height:220px;padding:12px;resize:vertical;
+    font-family:var(--mono);font-size:12px;line-height:1.65;
+  }
+  .script-field input::placeholder,.script-field textarea::placeholder{color:#41414b}
+  .script-field input:focus,.script-field textarea:focus{
+    outline:0;border-color:#3a3a46;box-shadow:0 0 0 3px rgba(247,2,4,.05);
+  }
+  .script-code-field{flex:1}
+  .script-form-foot{
+    display:flex;align-items:center;justify-content:space-between;gap:12px;
+    flex-wrap:wrap;
+  }
+  .script-hint{font-size:9.5px;color:#3f3f49}
+  .script-submit{
+    padding:10px 16px;border:0;border-radius:9px;background:#1b1b22;
+    color:#dcdce4;font:inherit;font-size:10.5px;letter-spacing:.04em;
+    cursor:pointer;transition:background .22s ease,color .22s ease,opacity .22s ease;
+  }
+  .script-submit:hover:not(:disabled),.script-submit:focus-visible:not(:disabled){
+    background:var(--accent);color:#fff;
+  }
+  .script-submit:disabled{opacity:.4;cursor:wait}
+  .script-status{
+    padding:10px 12px;border:1px solid #22222b;border-radius:9px;
+    background:#0f0f14;font-size:11px;line-height:1.65;color:#9a9aa4;
+  }
+  .script-status[hidden]{display:none}
+  .script-status.ok{border-color:#1d3a28;background:#0a120c;color:#7fbd95}
+  .script-status.bad{border-color:#3a1618;background:#140b0c;color:#d07a72}
+  .script-status.busy{border-color:#2b2417;background:#12100b;color:#b09053}
+  .script-status.busy::before{
+    content:"";display:inline-block;width:6px;height:6px;margin-right:8px;
+    border-radius:50%;background:#c9862f;box-shadow:0 0 8px rgba(201,134,47,.7);
+    animation:scriptPulse 1.4s ease-in-out infinite;
+  }
+  @keyframes scriptPulse{0%,100%{opacity:.35}50%{opacity:1}}
+
+  /* ---------- scripts responsive ---------- */
+  @media (max-width:820px){
+    main.script-view{padding:0 12px 16px}
+    .script-shell{height:calc(100dvh - 92px);max-height:none;border-radius:14px}
+    .script-list{grid-template-columns:1fr}
+    .script-card.open{grid-column:auto}
+  }
+  @media (max-width:640px){
+    .script-topbar{padding:11px 12px;gap:8px}
+    .script-search input{padding:10px 12px 10px 34px;font-size:11.5px}
+    .script-search svg{left:11px}
+    .script-create{padding:10px 13px;font-size:10px}
+    .script-subbar{padding:7px 13px}
+    .script-list{padding:12px}
+    .script-field-row{grid-template-columns:1fr}
+    .script-modal{padding:10px}
+    .script-modal-card{max-height:94dvh;border-radius:14px}
+    .script-modal-head{padding:15px 15px 13px}
+    .script-form{padding:15px}
+    .script-code{max-height:260px}
+  }
+
   /* ---------- AI responsive ---------- */
   @media (max-width:820px){
     main.ai-view{padding:0 12px 12px}
@@ -1529,6 +1799,8 @@
             aria-selected="true" aria-controls="promptsView">prompts</button>
     <button class="tab" id="tabAI" type="button" role="tab"
             aria-selected="false" aria-controls="aiView">ai</button>
+    <button class="tab" id="tabScripts" type="button" role="tab"
+            aria-selected="false" aria-controls="scriptsView">scripts</button>
   </nav>
   <div class="head-right">
     <button class="pick" id="pick" type="button" aria-label="Load prompts folder" hidden>
@@ -1562,7 +1834,7 @@
       <div class="chat-list" id="chatList"></div>
       <div class="ai-side-foot" id="aiSideFoot">
         <span class="d" aria-hidden="true"></span>
-        <span></span>
+        <span>NVIDIA NIM</span>
       </div>
     </aside>
     <div class="ai-scrim" id="aiScrim" aria-hidden="true"></div>
@@ -1626,6 +1898,70 @@
 </main>
 
 <input type="file" id="aiFiles" accept="image/*" multiple hidden>
+
+<main class="view script-view" id="scriptsView" hidden>
+  <section class="script-shell" aria-label="Script vault">
+    <div class="script-topbar">
+      <label class="script-search">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.6-3.6"></path></svg>
+        <input id="scriptSearch" type="search" placeholder="Search published scripts" autocomplete="off" aria-label="Search published scripts">
+      </label>
+      <button class="script-create" id="scriptCreate" type="button">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>
+        Create
+      </button>
+    </div>
+    <div class="script-subbar" id="scriptSubbar" hidden>
+      <span><b id="scriptCount">0</b> published &middot; reviewed by cortex</span>
+      <button class="script-refresh" id="scriptRefresh" type="button">refresh</button>
+    </div>
+    <div class="script-body">
+      <div class="script-list" id="scriptList" aria-live="polite"></div>
+      <div class="script-empty" id="scriptEmpty">
+        <p>Published scripts will appear here.</p>
+        <span>Hit <code>Create</code> to submit a Roblox script. Every upload is scanned for profanity and malicious code by Cortex before it is published.</span>
+      </div>
+    </div>
+  </section>
+</main>
+
+<div class="script-modal" id="scriptModal" hidden>
+  <section class="script-modal-card" role="dialog" aria-modal="true" aria-labelledby="createTitle">
+    <div class="script-modal-head">
+      <div>
+        <span class="script-kicker">community // roblox lua</span>
+        <h2 id="createTitle">Create a script</h2>
+      </div>
+      <button class="script-modal-close" id="scriptClose" type="button" aria-label="Close">&times;</button>
+    </div>
+    <form class="script-form" id="scriptForm" autocomplete="off">
+      <div class="script-field-row">
+        <label class="script-field">
+          <span>Script name</span>
+          <input id="scriptName" name="name" type="text" maxlength="80"
+                 placeholder="e.g. Inventory GUI" required>
+        </label>
+        <label class="script-field">
+          <span>Author <em>optional</em></span>
+          <input id="scriptAuthor" name="author" type="text" maxlength="40"
+                 placeholder="your name">
+        </label>
+      </div>
+      <label class="script-field script-code-field">
+        <span>Lua source</span>
+        <textarea id="scriptCode" name="code" rows="12" maxlength="262144"
+                  spellcheck="false" autocapitalize="off"
+                  placeholder="-- paste your Roblox Lua script here" required></textarea>
+      </label>
+      <div class="script-form-foot">
+        <span class="script-hint">Plain text only &middot; max 256 KB &middot; never executed</span>
+        <button class="script-submit" id="scriptSubmit" type="submit">submit for review</button>
+      </div>
+      <div class="script-status" id="scriptStatus" role="status" aria-live="polite" hidden></div>
+    </form>
+  </section>
+</div>
+
 
 <div class="scrim" id="scrim" hidden>
   <div class="panel" id="panel" role="dialog" aria-modal="true" aria-labelledby="panelName">
@@ -3600,8 +3936,10 @@ document.addEventListener("keydown", e => {
 
   const tabPrompts = $("tabPrompts");
   const tabAI      = $("tabAI");
+  const tabScripts = $("tabScripts");
   const promptsView= $("promptsView");
   const aiView     = $("aiView");
+  const scriptsView= $("scriptsView");
   const aiShell    = $("aiShell");
   const aiSide     = $("aiSide");
   const aiScrim    = $("aiScrim");
@@ -3626,6 +3964,22 @@ document.addEventListener("keydown", e => {
   const meterFill  = $("meterFill");
   const meterTrack = $("meterTrack");
 
+  const scriptForm   = $("scriptForm");
+  const scriptName   = $("scriptName");
+  const scriptAuthor = $("scriptAuthor");
+  const scriptCode   = $("scriptCode");
+  const scriptSubmit = $("scriptSubmit");
+  const scriptStatus = $("scriptStatus");
+  const scriptList   = $("scriptList");
+  const scriptEmpty  = $("scriptEmpty");
+  const scriptCount  = $("scriptCount");
+  const scriptRefresh= $("scriptRefresh");
+  const scriptSearch = $("scriptSearch");
+  const scriptCreate = $("scriptCreate");
+  const scriptSubbar = $("scriptSubbar");
+  const scriptModal  = $("scriptModal");
+  const scriptClose  = $("scriptClose");
+
   const STORE_KEY = "cortex.ai.v1";
   const AI_ENDPOINT = "/api/chat";
   const HEALTH_ENDPOINT = "/api/health";
@@ -3644,8 +3998,6 @@ document.addEventListener("keydown", e => {
   /* These ids MUST match the allow-list in server.js (or NVIDIA_MODELS). */
   const AI_MODELS = [
     { id: "nvidia/nemotron-3-ultra-550b-a55b", label: "Cortex", context: 131072 },
-    { id: "deepseek-ai/deepseek-v4.1-flash", label: "Cortex Flash", context: 131072 },
-    { id: "meta/llama-3.2-90b-vision-instruct", label: "Cortex Vision", vision: true, context: 128000 },
   ];
 
   const MODEL_LABEL = {};
@@ -4277,19 +4629,25 @@ Put any complete file, script, or document in one fenced block. The info line is
 
   /* ---------- tab switching ---------- */
   function setTab(which) {
-    const ai = which === "ai";
-    if ((which === "ai") === (currentTab === "ai") && currentTab) {
+    const tab = which === "ai" ? "ai" : which === "scripts" ? "scripts" : "prompts";
+    if (tab === currentTab) {
       document.body.dataset.tab = currentTab;
       return;
     }
-    currentTab = ai ? "ai" : "prompts";
+    currentTab = tab;
     document.body.dataset.tab = currentTab;
-    promptsView.hidden = ai;
-    aiView.hidden = !ai;
-    tabPrompts.setAttribute("aria-selected", String(!ai));
-    tabAI.setAttribute("aria-selected", String(ai));
+    if (tab !== "scripts" && !scriptModal.hidden) {
+      scriptModal.hidden = true;
+      document.body.classList.remove("script-modal-open");
+    }
+    promptsView.hidden = tab !== "prompts";
+    aiView.hidden = tab !== "ai";
+    scriptsView.hidden = tab !== "scripts";
+    tabPrompts.setAttribute("aria-selected", String(tab === "prompts"));
+    tabAI.setAttribute("aria-selected", String(tab === "ai"));
+    tabScripts.setAttribute("aria-selected", String(tab === "scripts"));
 
-    if (ai) {
+    if (tab === "ai") {
       if (scrim.classList.contains("open")) closePanel();
       if (legalScrim.classList.contains("open")) closeLegal();
       renderChats();
@@ -4298,17 +4656,25 @@ Put any complete file, script, or document in one fenced block. The info line is
       setTimeout(() => { try { aiInput.focus(); } catch {} }, 50);
     } else {
       aiShell.classList.remove("side-open");
+      if (tab === "scripts") loadScripts();
     }
   }
 
-  const hashTab = () => (location.hash.replace(/^#/, "").toLowerCase() === "ai" ? "ai" : "prompts");
+  const hashTab = () => {
+    const h = location.hash.replace(/^#/, "").toLowerCase();
+    return h === "ai" || h === "scripts" ? h : "prompts";
+  };
 
-  tabPrompts.addEventListener("click", () => {
-    setTab("prompts");
-    if (location.hash === "#ai") {
+  function clearHashTab() {
+    if (location.hash === "#ai" || location.hash === "#scripts") {
       try { history.pushState(null, "", location.pathname + location.search); }
       catch { location.hash = ""; }
     }
+  }
+
+  tabPrompts.addEventListener("click", () => {
+    setTab("prompts");
+    clearHashTab();
   });
 
   tabAI.addEventListener("click", () => {
@@ -4316,14 +4682,330 @@ Put any complete file, script, or document in one fenced block. The info line is
     if (location.hash !== "#ai") location.hash = "ai";
   });
 
-  [tabPrompts, tabAI].forEach(tab => {
+  tabScripts.addEventListener("click", () => {
+    setTab("scripts");
+    if (location.hash !== "#scripts") location.hash = "scripts";
+  });
+
+  const tabOrder = [tabPrompts, tabAI, tabScripts];
+  tabOrder.forEach(tab => {
     tab.addEventListener("keydown", e => {
       if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
       e.preventDefault();
-      const goAI = e.key === "ArrowRight";
-      (goAI ? tabAI : tabPrompts).focus();
-      (goAI ? tabAI : tabPrompts).click();
+      const i = tabOrder.indexOf(tab);
+      const next = tabOrder[(i + (e.key === "ArrowRight" ? 1 : -1) + tabOrder.length) % tabOrder.length];
+      next.focus();
+      next.click();
     });
+  });
+
+  /* ---------- scripts vault ---------- */
+  const SCRIPTS_ENDPOINT = "/api/scripts";
+  const SCRIPT_NAME_MAX = 80;
+  const SCRIPT_CODE_MAX = 262144;
+  let scriptItems = [];
+  let scriptsLoading = false;
+  let scriptsLoaded = false;
+  let scriptSubmitting = false;
+  let scriptQuery = "";
+
+  const scriptEsc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => (
+    { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]
+  ));
+
+  const fmtScriptBytes = n => {
+    const b = Number(n) || 0;
+    if (b < 1024) return b + " B";
+    if (b < 1024 * 1024) return (b / 1024).toFixed(b < 10 * 1024 ? 1 : 0) + " KB";
+    return (b / (1024 * 1024)).toFixed(1) + " MB";
+  };
+
+  const fmtWhen = iso => {
+    const t = Date.parse(iso);
+    if (!Number.isFinite(t)) return "";
+    try {
+      return new Date(t).toLocaleDateString(undefined, {
+        month: "short", day: "numeric", year: "numeric"
+      });
+    } catch { return ""; }
+  };
+
+  function setScriptStatus(kind, text) {
+    scriptStatus.className = "script-status" + (kind ? " " + kind : "");
+    scriptStatus.textContent = text;
+    scriptStatus.hidden = !text;
+  }
+
+  function setScriptBusy(on) {
+    scriptSubmit.disabled = on;
+    scriptSubmit.textContent = on ? "reviewing..." : "submit for review";
+  }
+
+  function renderScripts() {
+    scriptCount.textContent = String(scriptItems.length);
+    const q = scriptQuery.trim().toLowerCase();
+    const visible = q
+      ? scriptItems.filter(s => [s.name, s.author, s.summary]
+          .filter(Boolean).join(" ").toLowerCase().includes(q))
+      : scriptItems;
+
+    scriptList.innerHTML = "";
+    scriptSubbar.hidden = scriptItems.length === 0;
+    scriptEmpty.hidden = visible.length > 0;
+
+    if (!visible.length) {
+      scriptEmpty.innerHTML = scriptItems.length
+        ? `<p>No scripts match &ldquo;${scriptEsc(scriptQuery.trim())}&rdquo;.</p>` +
+          `<span>Try a different name, author, or keyword.</span>`
+        : `<p>Published scripts will appear here.</p>` +
+          `<span>Hit <code>Create</code> to submit a Roblox script. Every upload is scanned for profanity and malicious code by Cortex before it is published.</span>`;
+      return;
+    }
+
+    visible.forEach((s, i) => {
+      const card = document.createElement("article");
+      card.className = "script-card";
+      card.dataset.id = s.id;
+
+      const top = document.createElement("div");
+      top.className = "script-card-top";
+      top.innerHTML =
+        `<div class="script-card-id">` +
+          `<span class="script-index">${String(i + 1).padStart(2, "0")}</span>` +
+          `<div><h3>${scriptEsc(s.name)}</h3>` +
+          `<p class="script-meta">by ${scriptEsc(s.author || "anonymous")} &middot; ` +
+          `${scriptEsc(fmtScriptBytes(s.bytes))} &middot; ${scriptEsc(fmtWhen(s.createdAt))}</p></div>` +
+        `</div>` +
+        `<div class="script-card-actions">` +
+          `<button type="button" data-act="view">view</button>` +
+          `<button type="button" data-act="download">download</button>` +
+        `</div>`;
+
+      const summary = document.createElement("p");
+      summary.className = "script-summary";
+      summary.textContent = s.summary || "Approved by the Cortex reviewer.";
+
+      const pre = document.createElement("pre");
+      pre.className = "script-code";
+      pre.hidden = true;
+      pre.appendChild(document.createElement("code"));
+
+      card.append(top, summary, pre);
+      scriptList.appendChild(card);
+    });
+  }
+
+  async function loadScripts(force) {
+    if (scriptsLoading) return;
+    if (scriptsLoaded && !force) return;
+    scriptsLoading = true;
+    try {
+      if (!/^https?:$/.test(location.protocol)) throw new Error("Scripts need the Cortex server.");
+      const r = await fetch(SCRIPTS_ENDPOINT, { cache: "no-store" });
+      const j = await r.json().catch(() => null);
+      if (!r.ok) throw new Error((j && j.error && j.error.message) || `HTTP ${r.status}`);
+      scriptItems = Array.isArray(j && j.scripts) ? j.scripts : [];
+      scriptsLoaded = true;
+      renderScripts();
+    } catch (err) {
+      scriptItems = [];
+      scriptCount.textContent = "0";
+      scriptList.innerHTML = "";
+      scriptSubbar.hidden = false;
+      scriptEmpty.hidden = false;
+      scriptEmpty.innerHTML =
+        "<p>Could not load approved scripts.</p>" +
+        `<span>${scriptEsc(err && err.message ? err.message : "Unknown error")}</span>`;
+    } finally {
+      scriptsLoading = false;
+    }
+  }
+
+  async function fetchScript(id) {
+    const r = await fetch(`${SCRIPTS_ENDPOINT}/${encodeURIComponent(id)}`, { cache: "no-store" });
+    const j = await r.json().catch(() => null);
+    if (!r.ok || !j || !j.script) {
+      throw new Error((j && j.error && j.error.message) || `HTTP ${r.status}`);
+    }
+    return j.script;
+  }
+
+  function downloadScript(script) {
+    const blob = new Blob([script.code], { type: "text/plain;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    const base = String(script.name || "script")
+      .replace(/[^a-z0-9._-]+/gi, "-")
+      .replace(/^-+|-+$/g, "") || "script";
+    a.href = url;
+    a.download = base.toLowerCase().endsWith(".lua") ? base : `${base}.lua`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 3000);
+  }
+
+  scriptList.addEventListener("click", async e => {
+    const btn = e.target.closest("button[data-act]");
+    if (!btn) return;
+    const card = btn.closest(".script-card");
+    const id = card && card.dataset.id;
+    if (!id) return;
+    const meta = scriptItems.find(s => s.id === id);
+    if (!meta) return;
+
+    const pre = card.querySelector(".script-code");
+    if (!pre) return;
+
+    if (btn.dataset.act === "view") {
+      if (!pre.hidden) {
+        pre.hidden = true;
+        card.classList.remove("open");
+        btn.textContent = "view";
+        return;
+      }
+      if (!meta.code) {
+        btn.disabled = true;
+        btn.textContent = "loading";
+        try {
+          const full = await fetchScript(id);
+          meta.code = full.code;
+          meta.summary = full.summary || meta.summary;
+        } catch (err) {
+          btn.disabled = false;
+          btn.textContent = "view";
+          setScriptStatus("bad", err.message);
+          showToast("Could not load script", err.message, "#d07a72");
+          return;
+        }
+        btn.disabled = false;
+      }
+      pre.querySelector("code").textContent = meta.code;
+      pre.hidden = false;
+      card.classList.add("open");
+      btn.textContent = "hide";
+      return;
+    }
+
+    if (btn.dataset.act === "download") {
+      btn.disabled = true;
+      const label = btn.textContent;
+      btn.textContent = "loading";
+      try {
+        if (!meta.code) {
+          const full = await fetchScript(id);
+          meta.code = full.code;
+        }
+        downloadScript({ ...meta, code: meta.code });
+        btn.textContent = "saved";
+        setTimeout(() => { btn.textContent = label; }, 1400);
+      } catch (err) {
+        btn.textContent = label;
+        setScriptStatus("bad", err.message);
+        showToast("Could not download script", err.message, "#d07a72");
+      } finally {
+        btn.disabled = false;
+      }
+    }
+  });
+
+  function openScriptModal() {
+    scriptModal.hidden = false;
+    document.body.classList.add("script-modal-open");
+    setScriptStatus("", "");
+    requestAnimationFrame(() => scriptName.focus());
+  }
+
+  function closeScriptModal() {
+    if (scriptModal.hidden) return;
+    scriptModal.hidden = true;
+    document.body.classList.remove("script-modal-open");
+    scriptCreate.focus();
+  }
+
+  scriptCreate.addEventListener("click", openScriptModal);
+  scriptClose.addEventListener("click", closeScriptModal);
+  scriptModal.addEventListener("click", e => {
+    if (e.target === scriptModal) closeScriptModal();
+  });
+  document.addEventListener("keydown", e => {
+    if (e.key === "Escape" && !scriptModal.hidden) {
+      e.preventDefault();
+      closeScriptModal();
+    }
+  });
+
+  scriptSearch.addEventListener("input", () => {
+    scriptQuery = scriptSearch.value;
+    renderScripts();
+  });
+
+  scriptRefresh.addEventListener("click", () => {
+    scriptsLoaded = false;
+    loadScripts(true);
+  });
+
+  scriptForm.addEventListener("submit", async e => {
+    e.preventDefault();
+    if (scriptSubmitting) return;
+
+    const name = scriptName.value.trim();
+    const author = scriptAuthor.value.trim();
+    const code = scriptCode.value;
+
+    if (name.length < 2) {
+      setScriptStatus("bad", "Give the script a name of at least 2 characters.");
+      scriptName.focus();
+      return;
+    }
+    if (name.length > SCRIPT_NAME_MAX) {
+      setScriptStatus("bad", `Script name must be ${SCRIPT_NAME_MAX} characters or fewer.`);
+      scriptName.focus();
+      return;
+    }
+    if (author.length > 40) {
+      setScriptStatus("bad", "Author name must be 40 characters or fewer.");
+      scriptAuthor.focus();
+      return;
+    }
+    if (!code.trim()) {
+      setScriptStatus("bad", "Paste the Lua source before submitting.");
+      scriptCode.focus();
+      return;
+    }
+    if (code.length > SCRIPT_CODE_MAX) {
+      setScriptStatus("bad", "Script is larger than the 256 KB limit.");
+      return;
+    }
+
+    scriptSubmitting = true;
+    setScriptBusy(true);
+    setScriptStatus("busy", "Scanning for profanity and malicious code...");
+
+    try {
+      const r = await fetch(SCRIPTS_ENDPOINT, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, author, code })
+      });
+      const j = await r.json().catch(() => null);
+      if (!r.ok || !j || !j.ok) {
+        throw new Error((j && j.error && j.error.message) || `HTTP ${r.status}`);
+      }
+      scriptForm.reset();
+      scriptQuery = "";
+      scriptSearch.value = "";
+      closeScriptModal();
+      setScriptStatus("ok", `Approved. "${j.script.name}" is now in the vault.`);
+      showToast("Script approved", j.script.name, "#63d38a");
+      scriptsLoaded = false;
+      await loadScripts(true);
+    } catch (err) {
+      setScriptStatus("bad", err && err.message ? err.message : "Could not submit this script.");
+    } finally {
+      scriptSubmitting = false;
+      setScriptBusy(false);
+    }
   });
 
   window.addEventListener("hashchange", () => setTab(hashTab()));
