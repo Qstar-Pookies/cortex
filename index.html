@@ -989,43 +989,78 @@
   .md-body table{border-collapse:collapse;margin:9px 0;font-size:11px}
   .md-body th,.md-body td{border:1px solid var(--line);padding:5px 8px;text-align:left}
 
-  /* ---------- downloadable files ---------- */
+  /* ---------- code / downloadable files ---------- */
+  .files-bar{
+    display:flex;align-items:center;justify-content:space-between;gap:12px;
+    margin:14px 0 2px;padding:9px 13px;
+    border:1px solid #20202a;border-radius:11px;
+    background:linear-gradient(180deg,#101016,#0b0b10);
+    font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:#7c7c88;
+  }
+  .files-bar .fb-l{display:flex;align-items:center;gap:9px;min-width:0}
+  .files-bar .fb-l i{
+    width:7px;height:7px;flex:0 0 auto;border-radius:2px;
+    background:var(--accent);box-shadow:0 0 9px var(--accent);
+  }
+  .files-zip{
+    flex:0 0 auto;display:inline-flex;align-items:center;gap:8px;
+    padding:7px 13px;border:0;border-radius:9px;
+    background:#1b1b22;color:#e6e6ec;font:inherit;font-size:10px;letter-spacing:.08em;
+    text-transform:uppercase;cursor:pointer;
+    transition:background .2s ease,color .2s ease,opacity .2s ease;
+  }
+  .files-zip svg{width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+  .files-zip:hover:not(:disabled),.files-zip:focus-visible:not(:disabled){background:var(--accent);color:#fff}
+  .files-zip:disabled{opacity:.4;cursor:default}
+
   .file{
-    margin:11px 0;border:1px solid #22222c;border-radius:11px;
-    background:#0d0d12;overflow:hidden;
+    margin:11px 0;border:1px solid #20202a;border-radius:13px;
+    background:#0b0b10;overflow:hidden;
+    transition:border-color .22s ease,box-shadow .22s ease;
   }
-  .file-head{display:flex;align-items:center;gap:10px;padding:9px 11px}
-  .file-ico{
-    flex:0 0 auto;min-width:30px;height:30px;padding:0 5px;
-    display:grid;place-items:center;border-radius:7px;
-    background:#17171e;color:#8f8f9b;
-    font-family:var(--mono);font-size:9px;letter-spacing:.04em;
+  .file:hover{border-color:#2c2c38;box-shadow:0 12px 30px -24px #000}
+  .file-head{display:flex;align-items:center;gap:11px;padding:10px 11px}
+  .file-badge{
+    flex:0 0 auto;min-width:36px;height:27px;padding:0 9px;
+    display:grid;place-items:center;border-radius:8px;
+    background:#15151d;color:#cbcbd6;border:1px solid #24242f;
+    font-family:var(--mono);font-size:9px;letter-spacing:.07em;font-weight:600;
   }
-  .file-meta{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
+  .file-meta{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
   .file-name{
-    font-family:var(--mono);font-size:11.5px;color:#dcdce4;
+    font-family:var(--mono);font-size:12px;color:#e8e8ee;
     overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
   }
-  .file-sub{font-size:9.5px;color:#4f4f5a}
-  .file-dl{
-    flex:0 0 auto;padding:6px 11px;border:0;border-radius:7px;
-    background:#191920;color:#cfcfd8;font:inherit;font-size:10.5px;cursor:pointer;
-    transition:background .2s ease,color .2s ease;
+  .file-sub{font-size:9.5px;letter-spacing:.03em;color:#565662}
+  .file-actions{flex:0 0 auto;display:flex;align-items:center;gap:6px}
+  .file-btn{
+    display:inline-grid;place-items:center;width:31px;height:31px;
+    border:1px solid #24242f;border-radius:9px;background:#0e0e13;color:#8a8a96;
+    cursor:pointer;
+    transition:border-color .18s ease,color .18s ease,background .18s ease;
   }
-  .file-dl:hover,.file-dl:focus-visible{background:var(--accent);color:#fff}
-  .file-dl:focus-visible{outline:1px solid #4a4a58;outline-offset:2px}
-  .file.writing .file-dl{display:none}
+  .file-btn svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+  .file-btn:hover,.file-btn:focus-visible{border-color:#3a3a46;color:#e8e8ee;background:#14141b}
+  .file-btn:focus-visible{outline:1px solid #4a4a58;outline-offset:1px}
+  .file-btn.go{border-color:#2b1413;color:#ff9a90}
+  .file-btn.go:hover,.file-btn.go:focus-visible{background:var(--accent);border-color:var(--accent);color:#fff}
+  .file-btn.done{border-color:var(--good);color:var(--good);background:#0a120c}
+  .file.writing .file-btn.dl{display:none}
   .file.writing .file-sub{color:#a8834f}
-  .file .file-src{border-top:1px solid #191921}
-  .file .file-src summary{
-    padding:8px 11px;font-size:10px;color:#5c5c68;cursor:pointer;list-style:none;
+  .file.writing .file-badge{color:#a8834f;border-color:#3a2a14}
+  .file-src{border-top:1px solid #1a1a22}
+  .file-src summary{
+    padding:9px 12px;font-size:10px;letter-spacing:.04em;color:#5c5c68;
+    cursor:pointer;list-style:none;
   }
-  .file .file-src summary::-webkit-details-marker{display:none}
+  .file-src summary::-webkit-details-marker{display:none}
+  .file-src summary::before{content:"\25B8  ";color:#45454f}
+  .file-src[open] summary::before{content:"\25BE  "}
   .md-body .file .file-src pre{
-    margin:0;padding:0 11px 11px;border:0;border-radius:0;background:none;
-    max-height:300px;overflow:auto;
+    margin:0;padding:0 13px 13px;border:0;border-radius:0;background:none;
+    max-height:340px;overflow:auto;
   }
-  .md-body .file .file-src pre code{font-size:10.5px;line-height:1.65;color:#b9b9c4}
+  .md-body .file .file-src pre code{font-size:11px;line-height:1.7;color:#c4c4cf}
 
   /* ---------- composer ---------- */
   .ai-composer{
@@ -3866,6 +3901,75 @@ Put any complete file, script, or document in one fenced block. The info line is
   const escHtml = s => String(s == null ? "" : s).replace(/[&<>"']/g,
     c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 
+  /* ---------- icons used inside file cards ---------- */
+  const FILE_COPY_SVG = `<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="1.8"/><path d="M15 5.5A1.5 1.5 0 0 0 13.5 4H5.5A1.5 1.5 0 0 0 4 5.5v8A1.5 1.5 0 0 0 5.5 15"/></svg>`;
+  const FILE_DL_SVG = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11"/><path d="m8 11 4 4 4-4"/><path d="M5 19h14"/></svg>`;
+  const ZIP_SVG = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7.2a2 2 0 0 1 2-2h3.7l2 2H18a2 2 0 0 1 2 2v7.6a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2Z"/><path d="M13 9.5v6M13 10.8h2.2M13 13.3h2.2"/></svg>`;
+
+  /* ---------- dependency-free ZIP builder (STORE method) ----------
+     Bundles the code files from one reply into a real .zip that any OS
+     unzips into a working project folder. No compression is needed for
+     source to compile, and this needs no external library or network. */
+  const CRC_TABLE = (() => {
+    const t = new Uint32Array(256);
+    for (let n = 0; n < 256; n++) {
+      let c = n;
+      for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1;
+      t[n] = c >>> 0;
+    }
+    return t;
+  })();
+
+  function crc32(bytes) {
+    let crc = 0xFFFFFFFF;
+    for (let i = 0; i < bytes.length; i++) crc = (crc >>> 8) ^ CRC_TABLE[(crc ^ bytes[i]) & 0xFF];
+    return (crc ^ 0xFFFFFFFF) >>> 0;
+  }
+
+  function makeZip(files) {
+    const enc = new TextEncoder();
+    const u16 = n => [n & 255, (n >> 8) & 255];
+    const u32 = n => [n & 255, (n >> 8) & 255, (n >> 16) & 255, (n >> 24) & 255];
+    const parts = [], central = [];
+    let offset = 0;
+
+    for (const f of files) {
+      const nameB = enc.encode(f.name);
+      const crc = crc32(f.data);
+      const sz = f.data.length;
+      const local = new Uint8Array(
+        [].concat(u32(0x04034b50), u16(20), u16(0), u16(0), u16(0), u16(0),
+          u32(crc), u32(sz), u32(sz), u16(nameB.length), u16(0)));
+      parts.push(local, nameB, f.data);
+      const cen = new Uint8Array(
+        [].concat(u32(0x02014b50), u16(20), u16(20), u16(0), u16(0), u16(0), u16(0),
+          u32(crc), u32(sz), u32(sz), u16(nameB.length), u16(0), u16(0), u16(0), u16(0),
+          u32(0), u32(offset)));
+      central.push(cen, nameB);
+      offset += local.length + nameB.length + sz;
+    }
+
+    let cenSize = 0;
+    for (const c of central) cenSize += c.length;
+    const end = new Uint8Array(
+      [].concat(u32(0x06054b50), u16(0), u16(0), u16(files.length), u16(files.length),
+        u32(cenSize), u32(offset), u16(0)));
+
+    return new Blob([...parts, ...central, end], { type: "application/zip" });
+  }
+
+  function downloadBlob(blob, name) {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = name;
+    a.rel = "noopener";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 8000);
+  }
+
   /* ---------- tiny markdown renderer ---------- */
   function inlineMd(t) {
     return t
@@ -3952,21 +4056,24 @@ Put any complete file, script, or document in one fenced block. The info line is
     const label = writing
       ? "writing…"
       : state === "incomplete"
-        ? "incomplete · downloading gives what was written"
+        ? "incomplete · partial download"
         : `${lines} ${lines === 1 ? "line" : "lines"} · ${fmtBytes(bytes)}`;
     const open = writing && code.length < 24000;
 
     return `<div class="file${writing ? " writing" : ""}" data-file="${escHtml(name)}">` +
       `<div class="file-head">` +
-        `<span class="file-ico" aria-hidden="true">${escHtml(badge)}</span>` +
+        `<span class="file-badge" aria-hidden="true">${escHtml(badge)}</span>` +
         `<span class="file-meta">` +
           `<span class="file-name">${escHtml(name)}</span>` +
           `<span class="file-sub">${escHtml(label)}</span>` +
         `</span>` +
-        `<button class="file-dl" type="button" data-dl>download</button>` +
+        `<span class="file-actions">` +
+          `<button class="file-btn copy" type="button" data-copy-file aria-label="Copy code" title="Copy code">${FILE_COPY_SVG}</button>` +
+          `<button class="file-btn dl go" type="button" data-dl aria-label="Download file" title="Download file">${FILE_DL_SVG}</button>` +
+        `</span>` +
       `</div>` +
       `<details class="file-src"${open ? " open" : ""}>` +
-        `<summary>view source</summary>` +
+        `<summary>source</summary>` +
         `<pre><code>${escHtml(code)}</code></pre>` +
       `</details>` +
     `</div>`;
@@ -4080,6 +4187,14 @@ Put any complete file, script, or document in one fenced block. The info line is
 
     flushPara(); closeList();
     s = out.join("\n");
+
+    /* two or more files in one reply get a project bar that zips them together */
+    if (blocks.length >= 2) {
+      const dis = streaming ? " disabled" : "";
+      s = `<div class="files-bar"><span class="fb-l"><i></i>${blocks.length} files · project</span>` +
+        `<button class="files-zip" type="button" data-zip${dis}>${ZIP_SVG}<span>download .zip</span></button></div>` + s;
+    }
+
     s = s.replace(/\u0001(\d+)\u0001/g, (_, i) => inlines[+i]);
     s = s.replace(/\u0000(\d+)\u0000/g, (_, i) => blocks[+i]);
     return s;
@@ -4478,23 +4593,71 @@ Put any complete file, script, or document in one fenced block. The info line is
     aiScroll.scrollTop = aiScroll.scrollHeight;
   }
 
+  function filesInNode(scope) {
+    return [...scope.querySelectorAll(".file")].map(card => {
+      const codeEl = card.querySelector(".file-src code");
+      return { name: card.dataset.file || "file.txt", code: codeEl ? codeEl.textContent : "" };
+    });
+  }
+
+  function zipName(scope) {
+    const files = filesInNode(scope);
+    const first = files.find(f => f.name);
+    const base = first ? first.name.replace(/\\/g, "/").split("/")[0].replace(/\.[^.]+$/, "") : "";
+    return (slugify(base) || "cortex-project");
+  }
+
   aiThread.addEventListener("click", async e => {
+    /* bundle every file in this reply into one working project folder */
+    const zip = e.target.closest("[data-zip]");
+    if (zip) {
+      if (zip.disabled) return;
+      const body = zip.closest(".md-body");
+      if (!body) return;
+      const files = filesInNode(body).filter(f => f.name);
+      if (!files.length) return;
+
+      const folder = zipName(body);
+      const enc = new TextEncoder();
+      const seen = {};
+      const entries = files.map(f => {
+        let name = f.name.replace(/\\/g, "/").replace(/^\/+/, "");
+        if (seen[name] != null) {
+          const dot = name.lastIndexOf(".");
+          name = dot > 0 ? `${name.slice(0, dot)}-${++seen[name]}${name.slice(dot)}` : `${name}-${++seen[name]}`;
+        } else seen[name] = 0;
+        return { name: `${folder}/${name}`, data: enc.encode(f.code) };
+      });
+
+      try {
+        downloadBlob(makeZip(entries), folder + ".zip");
+        showToast("Project zipped", `${files.length} files · ${folder}.zip`, "#63d38a");
+      } catch {
+        showToast("Zip failed", "could not build archive", "#c9862f");
+      }
+      return;
+    }
+
     const dl = e.target.closest("[data-dl]");
     if (dl) {
       const card = dl.closest(".file");
       const codeEl = card && card.querySelector(".file-src code");
       if (!card || !codeEl) return;
       const name = card.dataset.file || "cortex.txt";
-      const blob = new Blob([codeEl.textContent], { type: "text/plain;charset=utf-8" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = name;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      setTimeout(() => URL.revokeObjectURL(url), 5000);
+      downloadBlob(new Blob([codeEl.textContent], { type: "text/plain;charset=utf-8" }), name);
       showToast("Downloaded", name, "#63d38a");
+      return;
+    }
+
+    const cf = e.target.closest("[data-copy-file]");
+    if (cf) {
+      const card = cf.closest(".file");
+      const codeEl = card && card.querySelector(".file-src code");
+      if (!codeEl) return;
+      const ok = await copyText(codeEl.textContent);
+      cf.classList.toggle("done", ok);
+      setTimeout(() => cf.classList.remove("done"), 1200);
+      showToast(ok ? "Copied" : "Copy failed", card.dataset.file || "code", ok ? "#63d38a" : "#c9862f");
       return;
     }
 
