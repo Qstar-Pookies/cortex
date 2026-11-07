@@ -891,6 +891,44 @@
   .md-body table{border-collapse:collapse;margin:9px 0;font-size:11px}
   .md-body th,.md-body td{border:1px solid var(--line);padding:5px 8px;text-align:left}
 
+  /* ---------- downloadable files ---------- */
+  .file{
+    margin:11px 0;border:1px solid #22222c;border-radius:11px;
+    background:#0d0d12;overflow:hidden;
+  }
+  .file-head{display:flex;align-items:center;gap:10px;padding:9px 11px}
+  .file-ico{
+    flex:0 0 auto;min-width:30px;height:30px;padding:0 5px;
+    display:grid;place-items:center;border-radius:7px;
+    background:#17171e;color:#8f8f9b;
+    font-family:var(--mono);font-size:9px;letter-spacing:.04em;
+  }
+  .file-meta{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
+  .file-name{
+    font-family:var(--mono);font-size:11.5px;color:#dcdce4;
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  }
+  .file-sub{font-size:9.5px;color:#4f4f5a}
+  .file-dl{
+    flex:0 0 auto;padding:6px 11px;border:0;border-radius:7px;
+    background:#191920;color:#cfcfd8;font:inherit;font-size:10.5px;cursor:pointer;
+    transition:background .2s ease,color .2s ease;
+  }
+  .file-dl:hover,.file-dl:focus-visible{background:var(--accent);color:#fff}
+  .file-dl:focus-visible{outline:1px solid #4a4a58;outline-offset:2px}
+  .file.writing .file-dl{display:none}
+  .file.writing .file-sub{color:#a8834f}
+  .file .file-src{border-top:1px solid #191921}
+  .file .file-src summary{
+    padding:8px 11px;font-size:10px;color:#5c5c68;cursor:pointer;list-style:none;
+  }
+  .file .file-src summary::-webkit-details-marker{display:none}
+  .md-body .file .file-src pre{
+    margin:0;padding:0 11px 11px;border:0;border-radius:0;background:none;
+    max-height:300px;overflow:auto;
+  }
+  .md-body .file .file-src pre code{font-size:10.5px;line-height:1.65;color:#b9b9c4}
+
   /* ---------- composer ---------- */
   .ai-composer{
     padding:12px 24px 14px;border-top:1px solid #141419;background:#0a0a0d;
@@ -949,6 +987,30 @@
   }
   .ai-send:disabled{opacity:.3;cursor:not-allowed}
   .ai-send.stop{background:#2b1012;color:#ff8a80}
+  .ai-meter{
+    width:min(700px,100%);margin:10px auto 0;
+  }
+  .ai-meter[hidden]{display:none}
+  .meter-top{
+    display:flex;align-items:baseline;justify-content:space-between;
+    gap:10px;margin-bottom:5px;
+    font-size:9.5px;color:#4c4c57;
+  }
+  .meter-top span:first-child{letter-spacing:.02em}
+  #meterNum{font-variant-numeric:tabular-nums;color:#5c5c68}
+  .meter-track{
+    position:relative;height:3px;border-radius:2px;
+    background:#191920;overflow:hidden;
+  }
+  .meter-fill{
+    display:block;height:100%;width:0;border-radius:2px;
+    background:#4a4a56;
+    transition:width .45s cubic-bezier(.25,.75,.3,1),background .3s ease;
+  }
+  .ai-meter.warn .meter-fill{background:#c9862f}
+  .ai-meter.hot .meter-fill{background:var(--accent)}
+  .ai-meter.warn #meterNum{color:#a8834f}
+  .ai-meter.hot #meterNum{color:#c2564c}
   .ai-under{
     width:min(700px,100%);margin:8px auto 0;text-align:center;
     font-size:9.5px;color:#33333d;
@@ -1115,6 +1177,16 @@
             </button>
             <span class="ai-hint" id="aiHint">enter to send &middot; shift+enter newline</span>
             <button class="ai-send" id="sendBtn" type="button" disabled>send</button>
+          </div>
+        </div>
+        <div class="ai-meter" id="aiMeter" hidden>
+          <div class="meter-top">
+            <span>context</span>
+            <span id="meterNum">0 / 128k</span>
+          </div>
+          <div class="meter-track" id="meterTrack" role="progressbar"
+               aria-label="Context usage" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+            <span class="meter-fill" id="meterFill"></span>
           </div>
         </div>
         <div class="ai-under">Cortex AI can make mistakes. Check important information.</div>
@@ -2331,6 +2403,10 @@ document.addEventListener("keydown", e => {
   const aiStatus   = $("aiStatus");
   const aiStatusText = $("aiStatusText");
   const aiSideFoot = $("aiSideFoot");
+  const aiMeter    = $("aiMeter");
+  const meterNum   = $("meterNum");
+  const meterFill  = $("meterFill");
+  const meterTrack = $("meterTrack");
 
   const STORE_KEY = "cortex.ai.v1";
   const AI_ENDPOINT = "/api/chat";
@@ -2339,22 +2415,109 @@ document.addEventListener("keydown", e => {
   const MAX_IMAGES = 4;
   const MAX_IMAGE_BYTES = 20 * 1024 * 1024;
   const IMAGE_EDGE = 1024;
+  const MAX_TOKENS = 4096;
+  const MAX_CONTINUE = 6;
+  const MAX_CONTINUE_CHARS = 120000;
+  const CONTINUE_PROMPT =
+    "Continue your previous message from exactly where it stopped. " +
+    "Do not repeat anything you already wrote and do not add a preamble or sign-off. " +
+    "If you are inside a file or fenced code block, keep writing the code until the file is finished, then close the fence.";
 
   const AI_MODELS = [
-    { id: "meta/llama-3.2-90b-vision-instruct", label: "Llama 3.2 90B Vision", vision: true },
-    { id: "google/gemma-4-31b-it", label: "Gemma 4 31B", vision: false },
-    { id: "nvidia/nemotron-3.5-lightning-30b-a3b", label: "Nemotron 3.5 Lightning", vision: false, reason: true },
-    { id: "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning", label: "Nemotron 3 Nano Omni", vision: false, reason: true },
-    { id: "nvidia/nemotron-3.5-super-vl-120b-a12b", label: "Nemotron 3.5 Super VL", vision: true, reason: true },
-    { id: "mistralai/mistral-large-4-1t-a52b", label: "Cortex", vision: true, reason: true }
+    { id: "meta/llama-3.2-90b-vision-instruct", label: "Llama 3.2 90B Vision", vision: true, context: 128000 },
+    { id: "google/gemma-4-31b-it", label: "Gemma 4 31B", context: 131072 },
+    { id: "nvidia/nemotron-3.5-lightning-30b-a3b", label: "Nemotron 3.5 Lightning", context: 131072 },
+    { id: "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning", label: "Nemotron 3 Nano Omni", context: 131072 },
+    { id: "nvidia/nemotron-3.5-super-vl-120b-a12b", label: "Nemotron 3.5 Super VL", vision: true, context: 131072 },
+    { id: "mistralai/mistral-large-4-1t-a52b", label: "Cortex", vision: true, reason: true, context: 131072 }
   ];
 
   const MODEL_LABEL = {};
   AI_MODELS.forEach(m => { MODEL_LABEL[m.id] = m.label; });
 
+  const modelById = id => AI_MODELS.find(m => m.id === id) || AI_MODELS[0];
+
+  const fmtTok = n => {
+    if (!Number.isFinite(n) || n <= 0) return "0";
+    if (n < 1000) return String(Math.round(n));
+    const k = n / 1000;
+    return (k >= 100 ? Math.round(k) : k.toFixed(k >= 10 ? 0 : 1)) + "k";
+  };
+
+  const estimateTokens = text => Math.ceil(String(text || "").length / 4);
+
+  function estimateMessages(list) {
+    let n = 0;
+    for (const m of list) {
+      if (typeof m.content === "string") {
+        n += estimateTokens(m.content);
+      } else if (Array.isArray(m.content)) {
+        for (const p of m.content) {
+          if (!p) continue;
+          if (p.type === "text") n += estimateTokens(p.text);
+          else if (p.type === "image_url") n += 1000;
+        }
+      }
+      n += 4;
+    }
+    return n;
+  }
+
+  function absorbUsage(target, u) {
+    if (!u) return;
+    const prompt = Number(u.prompt_tokens ?? u.prompt);
+    const completion = Number(u.completion_tokens ?? u.completion);
+    const total = Number(u.total_tokens ?? u.total);
+    if (![prompt, completion, total].some(Number.isFinite)) return;
+    target.usage = {
+      prompt: Number.isFinite(prompt) ? prompt : 0,
+      completion: Number.isFinite(completion) ? completion : 0,
+      total: Number.isFinite(total) ? total : (prompt || 0) + (completion || 0),
+      estimated: false
+    };
+  }
+
+  function updateMeter(chat) {
+    chat = chat === undefined ? activeChat() : chat;
+
+    if (!chat || !chat.messages || !chat.messages.length) {
+      aiMeter.hidden = true;
+      meterFill.style.width = "0%";
+      return;
+    }
+
+    const model = modelById(chat.model);
+    const limit = model.context || 131072;
+    const last = chat.messages[chat.messages.length - 1];
+
+    let used;
+    if (last && last.usage && Number.isFinite(last.usage.total) && last.usage.total > 0) {
+      used = last.usage.total;
+    } else {
+      used = estimateMessages(apiMessages(chat, model));
+      if (last && last.role === "assistant") {
+        used += estimateTokens((last.content || "") + (last.reasoning || ""));
+      }
+    }
+
+    const pct = Math.max(0, Math.min(100, (used / limit) * 100));
+    const shown = pct > 0 && pct < 1 ? "<1" : String(Math.round(pct));
+
+    aiMeter.hidden = false;
+    meterNum.textContent = `${fmtTok(used)} / ${fmtTok(limit)} · ${shown}%`;
+    meterFill.style.width = Math.max(0.5, pct).toFixed(2) + "%";
+    meterTrack.setAttribute("aria-valuenow", String(Math.round(pct)));
+    meterTrack.setAttribute("aria-valuetext", `${Math.round(used)} of ${limit} tokens used`);
+    aiMeter.classList.toggle("warn", pct >= 70 && pct < 90);
+    aiMeter.classList.toggle("hot", pct >= 90);
+  }
+
   const SYSTEM_PROMPT =
     "You are Cortex AI, the assistant built into the Cortex prompt library. " +
-    "Answer clearly and directly. Use Markdown for structure and code. " +
+    "Answer clearly and directly. Use Markdown for structure. " +
+    "When you write code, a script, a document, or any file, put the whole thing in one fenced block " +
+    "whose info line is the language followed by a filename, for example ```js app.js. " +
+    "Always write the complete file, never abbreviate it with comments like '... rest of code'. " +
     "When the user attaches an image, inspect it carefully before answering. " +
     "If you are unsure, say so instead of inventing details.";
 
@@ -2381,14 +2544,122 @@ document.addEventListener("keydown", e => {
       .replace(/(^|[\s(])\*([^*\n]+)\*(?=$|[\s.,;:!?)])/g, "$1<i>$2</i>");
   }
 
-  function md(src) {
+  const FILE_EXT = {
+    js: "js", javascript: "js", mjs: "mjs", cjs: "cjs", jsx: "jsx",
+    ts: "ts", typescript: "ts", tsx: "tsx",
+    py: "py", python: "py", rb: "rb", ruby: "rb",
+    html: "html", htm: "html", css: "css", scss: "scss", sass: "sass",
+    json: "json", jsonc: "jsonc", yml: "yml", yaml: "yaml",
+    sh: "sh", bash: "sh", shell: "sh", zsh: "sh", ps1: "ps1", powershell: "ps1",
+    md: "md", markdown: "md", sql: "sql", xml: "xml", csv: "csv", tsv: "tsv",
+    java: "java", c: "c", h: "h", cpp: "cpp", "c++": "cpp", cc: "cpp", hpp: "hpp",
+    cs: "cs", csharp: "cs", go: "go", rs: "rs", rust: "rs", php: "php",
+    swift: "swift", kt: "kt", kotlin: "kt", toml: "toml", ini: "ini", env: "env",
+    txt: "txt", text: "txt", plain: "txt",
+    vue: "vue", svelte: "svelte", dart: "dart", lua: "lua", r: "r", ex: "ex"
+  };
+
+  const FILE_BADGE = {
+    js: "JS", javascript: "JS", ts: "TS", typescript: "TS", tsx: "TSX", jsx: "JSX",
+    py: "PY", python: "PY", rb: "RB", ruby: "RB", html: "HTML", css: "CSS",
+    scss: "SCSS", sass: "SASS", json: "JSON", jsonc: "JSON", yml: "YML", yaml: "YML",
+    sh: "SH", bash: "SH", shell: "SH", zsh: "SH", ps1: "PS1", powershell: "PS1",
+    md: "MD", markdown: "MD", sql: "SQL", xml: "XML", csv: "CSV", tsv: "TSV",
+    java: "JAVA", c: "C", cpp: "C++", "c++": "C++", cs: "C#", csharp: "C#",
+    go: "GO", rs: "RS", rust: "RS", php: "PHP", swift: "SWIFT", kt: "KT",
+    kotlin: "KT", toml: "TOML", txt: "TXT", text: "TXT", plain: "TXT",
+    vue: "VUE", svelte: "SVELTE", dart: "DART", lua: "LUA", r: "R", ex: "EX"
+  };
+
+  function cleanFileName(raw) {
+    const s = String(raw || "").replace(/[`"'*<>]/g, " ").trim();
+    if (!s) return "";
+    const tokens = s.split(/[\s,;]+/);
+    let pick = tokens.find(t => /^[\w.\-/]+\.(?:[a-z0-9]{1,10})$/i.test(t)) || "";
+    if (!pick) pick = tokens.find(t => /^(dockerfile|makefile|procfile|gemfile)$/i.test(t)) || "";
+    if (!pick) return "";
+    pick = pick.replace(/\\/g, "/").split("/").pop().replace(/[^\w.\-]/g, "");
+    return pick.slice(0, 80);
+  }
+
+  function nameFromCode(code) {
+    const first = String(code || "").split(/\r?\n/, 1)[0].trim();
+    if (!first || first.length > 100) return "";
+    const bare = first.replace(/\s*(?:\*\/|-->)\s*$/, "");
+    const m = bare.match(/([\w.\-/]+\.(?:[a-z0-9]{1,10}))\s*$/i);
+    return m ? cleanFileName(m[1]) : "";
+  }
+
+  function parseFence(info, code, n) {
+    const raw = String(info || "").trim();
+    let lang = "", name = "";
+    if (raw) {
+      const parts = raw.split(/\s+/);
+      lang = parts.shift().toLowerCase();
+      if (/\.[a-z0-9]{1,10}$/i.test(lang)) { name = cleanFileName(raw); lang = ""; }
+      else name = cleanFileName(parts.join(" "));
+    }
+    if (!name) name = nameFromCode(code);
+    const ext = Object.prototype.hasOwnProperty.call(FILE_EXT, lang)
+      ? FILE_EXT[lang]
+      : (lang ? lang.replace(/[^\w]/g, "").slice(0, 6) : "txt");
+    if (!name) name = ext ? `cortex-${n}.${ext}` : `cortex-${n}.txt`;
+    return { lang, name };
+  }
+
+  const fmtBytes = n => n < 1024
+    ? n + " B"
+    : (n / 1024).toFixed(n < 10240 ? 1 : 0) + " KB";
+
+  function fileCard(lang, name, code, state) {
+    const key = String(lang || "").toLowerCase();
+    const ext = Object.prototype.hasOwnProperty.call(FILE_EXT, key) ? FILE_EXT[key] : key;
+    const badge = (FILE_BADGE[key] || ext || "TXT").toUpperCase().slice(0, 6);
+    const lines = code ? code.replace(/\r?\n$/, "").split(/\r?\n/).length : 0;
+    const bytes = new TextEncoder().encode(code).length;
+    const writing = state === "writing";
+    const label = writing
+      ? "writing\u2026"
+      : state === "incomplete"
+        ? "incomplete \u00b7 downloading gives what was written"
+        : `${lines} ${lines === 1 ? "line" : "lines"} \u00b7 ${fmtBytes(bytes)}`;
+    const open = writing && code.length < 24000;
+
+    return `<div class="file${writing ? " writing" : ""}" data-file="${escHtml(name)}">` +
+      `<div class="file-head">` +
+        `<span class="file-ico" aria-hidden="true">${escHtml(badge)}</span>` +
+        `<span class="file-meta">` +
+          `<span class="file-name">${escHtml(name)}</span>` +
+          `<span class="file-sub">${escHtml(label)}</span>` +
+        `</span>` +
+        `<button class="file-dl" type="button" data-dl>download</button>` +
+      `</div>` +
+      `<details class="file-src"${open ? " open" : ""}>` +
+        `<summary>view source</summary>` +
+        `<pre><code>${escHtml(code)}</code></pre>` +
+      `</details>` +
+    `</div>`;
+  }
+
+  function md(src, streaming) {
     const blocks = [], inlines = [];
     let s = String(src == null ? "" : src);
+    let n = 0;
 
-    s = s.replace(/```([\w+#.-]*)\r?\n?([\s\S]*?)```/g, (_, lang, code) => {
-      blocks.push(`<pre><code>${escHtml(code.replace(/\n$/, ""))}</code></pre>`);
+    s = s.replace(/```([^\n`]*)\r?\n?([\s\S]*?)```/g, (_, info, code) => {
+      const f = parseFence(info, code, ++n);
+      blocks.push(fileCard(f.lang, f.name, code.replace(/\r?\n$/, ""), "done"));
       return `\u0000${blocks.length - 1}\u0000`;
     });
+
+    /* an unclosed trailing fence means the model is still writing the file */
+    const opening = s.match(/```([^\n`]*)\r?\n([\s\S]*)$/);
+    if (opening) {
+      const code = opening[2];
+      const f = parseFence(opening[1], code, ++n);
+      blocks.push(fileCard(f.lang, f.name, code, streaming ? "writing" : "incomplete"));
+      s = s.slice(0, opening.index) + `\u0000${blocks.length - 1}\u0000`;
+    }
 
     s = s.replace(/`([^`\n]+)`/g, (_, code) => {
       inlines.push(`<code>${escHtml(code)}</code>`);
@@ -2478,6 +2749,14 @@ document.addEventListener("keydown", e => {
         model: m.model || c.model || AI_MODELS[0].id,
         at: m.at || Date.now(),
         error: typeof m.error === "string" ? m.error : "",
+        usage: m.usage && Number.isFinite(Number(m.usage.total))
+          ? {
+              prompt: Number(m.usage.prompt) || 0,
+              completion: Number(m.usage.completion) || 0,
+              total: Number(m.usage.total) || 0,
+              estimated: !!m.usage.estimated
+            }
+          : null,
         streaming: false
       }))
     };
@@ -2721,7 +3000,7 @@ document.addEventListener("keydown", e => {
       const think = m.reasoning
         ? `<details class="think"${m.streaming ? " open" : ""}><summary>thinking</summary><div class="think-body">${escHtml(m.reasoning)}</div></details>`
         : "";
-      const body = m.content ? md(m.content) : "";
+      const body = m.content ? md(m.content, m.streaming) : "";
       bubble = `<div class="bubble">${think}<div class="md-body">${body}${m.streaming ? thinkingDots() : ""}</div></div>`;
     }
 
@@ -2747,6 +3026,7 @@ document.addEventListener("keydown", e => {
 
     if (!chat || !chat.messages.length) {
       aiEmpty.style.display = "";
+      updateMeter(chat);
       return;
     }
 
@@ -2754,6 +3034,7 @@ document.addEventListener("keydown", e => {
     const frag = document.createDocumentFragment();
     chat.messages.forEach(m => frag.appendChild(messageNode(m)));
     aiThread.appendChild(frag);
+    updateMeter(chat);
     scrollBottom(true);
   }
 
@@ -2762,11 +3043,18 @@ document.addEventListener("keydown", e => {
     if (!node) { renderThread(); return; }
 
     const body = node.querySelector(".md-body");
-    if (body) body.innerHTML = (m.content ? md(m.content) : "") + (m.streaming ? thinkingDots() : "");
+    if (body) body.innerHTML = (m.content ? md(m.content, m.streaming) : "") + (m.streaming ? thinkingDots() : "");
 
     let det = node.querySelector("details.think");
     if (m.reasoning) {
-      if (!det) { renderThread(); return; }
+      if (!det) {
+        const bubble = node.querySelector(".bubble");
+        if (!bubble) { renderThread(); return; }
+        det = document.createElement("details");
+        det.className = "think";
+        det.innerHTML = `<summary>thinking</summary><div class="think-body"></div>`;
+        bubble.insertBefore(det, bubble.firstChild);
+      }
       const tb = det.querySelector(".think-body");
       if (tb) tb.textContent = m.reasoning;
       if (m.streaming) det.setAttribute("open", "");
@@ -2784,12 +3072,80 @@ document.addEventListener("keydown", e => {
     }
   }
 
+  /* Coalesce stream paints: NVIDIA sends many tiny packets, and redrawing the
+     whole thread on each one is what made replies feel slow. */
+  let paintTimer = 0;
+  let paintTarget = null;
+
+  function queuePaint(m) {
+    paintTarget = m;
+    if (paintTimer) return;
+    const slow = m && m.content && m.content.length > 40000;
+    paintTimer = setTimeout(() => {
+      paintTimer = 0;
+      const target = paintTarget;
+      paintTarget = null;
+      if (!target) return;
+      patchAssistant(target);
+      updateMeter();
+      scrollBottom(false);
+    }, slow ? 200 : 80);
+  }
+
+  function flushPaint(m) {
+    if (paintTimer) { clearTimeout(paintTimer); paintTimer = 0; }
+    paintTarget = null;
+    if (m) patchAssistant(m);
+    updateMeter();
+  }
+
+  function hasOpenFence(text) {
+    const s = String(text || "");
+    const all = s.match(/```/g);
+    if (!all || all.length % 2 === 0) return false;
+    const last = s.lastIndexOf("```");
+    const tail = s.slice(Math.max(0, last - 1));
+    return /(?:^|\n)```[^\n`]*(?:\r?\n|$)/.test(tail);
+  }
+
+  /* Continuations often restart with a few lines we already have. Drop the
+     repeated prefix so the merged message doesn't stutter. */
+  function joinContinuation(base, full) {
+    if (!full) return base;
+    let add = full.startsWith(base) ? full.slice(base.length) : full;
+    if (!add) return base;
+    const cap = Math.min(base.length, add.length, 6000);
+    for (let k = cap; k >= 24; k--) {
+      if (base.endsWith(add.slice(0, k))) { add = add.slice(k); break; }
+    }
+    return base + add;
+  }
+
   function scrollBottom(force) {
     if (!force && aiScroll.scrollHeight - aiScroll.scrollTop - aiScroll.clientHeight > 160) return;
     aiScroll.scrollTop = aiScroll.scrollHeight;
   }
 
   aiThread.addEventListener("click", async e => {
+    const dl = e.target.closest("[data-dl]");
+    if (dl) {
+      const card = dl.closest(".file");
+      const codeEl = card && card.querySelector(".file-src code");
+      if (!card || !codeEl) return;
+      const name = card.dataset.file || "cortex.txt";
+      const blob = new Blob([codeEl.textContent], { type: "text/plain;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = name;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 5000);
+      showToast("Downloaded", name, "#63d38a");
+      return;
+    }
+
     const copy = e.target.closest("[data-copy-msg]");
     if (!copy) return;
     const chat = activeChat();
@@ -2933,6 +3289,7 @@ document.addEventListener("keydown", e => {
     if (!chat) return;
     chat.model = modelSel.value;
     saveStore();
+    updateMeter(chat);
   });
 
   function chooseModel(chat, hasImages) {
@@ -3013,6 +3370,8 @@ document.addEventListener("keydown", e => {
   function abortStream() {
     if (busy) busy.abort();
     busy = null;
+    if (paintTimer) { clearTimeout(paintTimer); paintTimer = 0; }
+    paintTarget = null;
   }
 
   async function send() {
@@ -3050,7 +3409,8 @@ document.addEventListener("keydown", e => {
 
     const assistant = {
       id: uid(), role: "assistant", content: "", reasoning: "",
-      images: [], model: model.id, at: Date.now(), streaming: true, error: ""
+      images: [], model: model.id, at: Date.now(), streaming: true, error: "",
+      usage: null
     };
     chat.messages.push(assistant);
 
@@ -3058,6 +3418,9 @@ document.addEventListener("keydown", e => {
     renderChats();
     renderThread();
     scrollBottom(true);
+
+    const payloadMessages = apiMessages(chat, model);
+    const promptEstimate = estimateMessages(payloadMessages);
 
     const ctrl = new AbortController();
     busy = ctrl;
@@ -3070,8 +3433,8 @@ document.addEventListener("keydown", e => {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           model: model.id,
-          messages: apiMessages(chat, model),
-          max_tokens: 2048,
+          messages: payloadMessages,
+          max_tokens: MAX_TOKENS,
           temperature: 0.65,
           top_p: 0.95,
           stream: true
@@ -3090,13 +3453,18 @@ document.addEventListener("keydown", e => {
       }
 
       const ctype = (res.headers.get("content-type") || "").toLowerCase();
+      let finish = "";
+
       if (ctype.includes("text/event-stream")) {
-        await readStream(res, assistant);
+        finish = await readStream(res, assistant);
       } else {
         const j = await res.json();
-        const msg = (j.choices && j.choices[0] && j.choices[0].message) || {};
+        const ch = (j.choices && j.choices[0]) || {};
+        const msg = ch.message || {};
         assistant.content = msg.content || "";
         assistant.reasoning = msg.reasoning_content || msg.reasoning || "";
+        finish = ch.finish_reason || "";
+        absorbUsage(assistant, j.usage);
         if (!assistant.content && !assistant.reasoning) {
           assistant.content = "*(the model returned an empty response)*";
         }
@@ -3104,6 +3472,58 @@ document.addEventListener("keydown", e => {
 
       if (!assistant.content && assistant.reasoning) {
         assistant.content = assistant.reasoning;
+        assistant.reasoning = "";
+      }
+
+      /* Keep generating while the model is capped or still inside a file. */
+      let rounds = 0;
+      while (
+        rounds < MAX_CONTINUE &&
+        busy === ctrl &&
+        !ctrl.signal.aborted &&
+        assistant.content.length < MAX_CONTINUE_CHARS &&
+        (finish === "length" || hasOpenFence(assistant.content))
+      ) {
+        rounds++;
+        const base = assistant.content;
+
+        const res2 = await fetch(AI_ENDPOINT, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            model: model.id,
+            messages: payloadMessages.concat([
+              { role: "assistant", content: base },
+              { role: "user", content: CONTINUE_PROMPT }
+            ]),
+            max_tokens: MAX_TOKENS,
+            temperature: 0.65,
+            top_p: 0.95,
+            stream: true
+          }),
+          signal: ctrl.signal
+        });
+
+        if (!res2.ok) break;
+
+        const ct2 = (res2.headers.get("content-type") || "").toLowerCase();
+        if (ct2.includes("text/event-stream")) {
+          finish = await readStream(res2, assistant);
+        } else {
+          const j = await res2.json();
+          const ch = (j.choices && j.choices[0]) || {};
+          const msg = ch.message || {};
+          assistant.content = base + (msg.content || "");
+          if (msg.reasoning_content || msg.reasoning) {
+            assistant.reasoning += msg.reasoning_content || msg.reasoning || "";
+          }
+          finish = ch.finish_reason || "";
+          absorbUsage(assistant, j.usage);
+        }
+
+        assistant.content = joinContinuation(base, assistant.content);
+        flushPaint(assistant);
+        saveStore();
       }
     } catch (err) {
       if (err && err.name === "AbortError") {
@@ -3121,6 +3541,15 @@ document.addEventListener("keydown", e => {
       assistant.streaming = false;
       if (!failed && !assistant.content && !assistant.reasoning) {
         assistant.content = "*(empty response)*";
+      }
+      if (!assistant.usage) {
+        const outEst = estimateTokens((assistant.content || "") + (assistant.reasoning || ""));
+        assistant.usage = {
+          prompt: promptEstimate,
+          completion: outEst,
+          total: promptEstimate + outEst,
+          estimated: true
+        };
       }
       touch(chat);
       saveStore();
@@ -3153,6 +3582,23 @@ document.addEventListener("keydown", e => {
     const reader = res.body.getReader();
     const decoder = new TextDecoder();
     let buffer = "";
+    let finish = "";
+
+    const take = line => {
+      if (!line.startsWith("data:")) return;
+      const data = line.slice(5).trim();
+      if (!data || data === "[DONE]") return;
+      try {
+        const j = JSON.parse(data);
+        if (j.usage) absorbUsage(assistant, j.usage);
+        const ch = (j.choices && j.choices[0]) || null;
+        if (ch && ch.finish_reason) finish = ch.finish_reason;
+        const d = (ch && ch.delta) || {};
+        if (d.reasoning_content) assistant.reasoning += d.reasoning_content;
+        if (d.reasoning) assistant.reasoning += d.reasoning;
+        if (d.content) assistant.content += d.content;
+      } catch {}
+    };
 
     while (true) {
       const { value, done } = await reader.read();
@@ -3164,40 +3610,18 @@ document.addEventListener("keydown", e => {
       while ((cut = buffer.indexOf("\n\n")) >= 0) {
         const packet = buffer.slice(0, cut);
         buffer = buffer.slice(cut + 2);
-
-        for (const line of packet.split("\n")) {
-          if (!line.startsWith("data:")) continue;
-          const data = line.slice(5).trim();
-          if (!data || data === "[DONE]") continue;
-
-          try {
-            const j = JSON.parse(data);
-            const d = (j.choices && j.choices[0] && j.choices[0].delta) || {};
-            if (d.reasoning_content) assistant.reasoning += d.reasoning_content;
-            if (d.reasoning) assistant.reasoning += d.reasoning;
-            if (d.content) assistant.content += d.content;
-          } catch {}
-        }
-
-        patchAssistant(assistant);
-        scrollBottom(false);
+        for (const line of packet.split("\n")) take(line);
+        queuePaint(assistant);
       }
     }
 
     const rest = buffer.trim();
     if (rest) {
-      for (const line of rest.split("\n")) {
-        if (!line.startsWith("data:")) continue;
-        const data = line.slice(5).trim();
-        if (!data || data === "[DONE]") continue;
-        try {
-          const j = JSON.parse(data);
-          const d = (j.choices && j.choices[0] && j.choices[0].delta) || {};
-          if (d.reasoning_content) assistant.reasoning += d.reasoning_content;
-          if (d.content) assistant.content += d.content;
-        } catch {}
-      }
+      for (const line of rest.split("\n")) take(line);
     }
+
+    flushPaint(assistant);
+    return finish;
   }
 
   /* ---------- status ---------- */
