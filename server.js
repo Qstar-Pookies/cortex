@@ -33,7 +33,9 @@ const UPSTREAM = (process.env.NVIDIA_BASE_URL || "https://integrate.api.nvidia.c
 /* The allow-list MUST match the model ids the browser (index.html) sends.
    Override with NVIDIA_MODELS if your NVIDIA account exposes different ids. */
 const DEFAULT_MODELS = [
-  "nvidia/nemotron-3-ultra-550b-a55b"
+  "nvidia/nemotron-3-ultra-550b-a55b",
+   "moonshotai/kimi-k3"
+   
 ];
 const MODELS = new Set(
   (process.env.NVIDIA_MODELS
