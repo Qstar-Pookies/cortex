@@ -13,10 +13,18 @@
 const http = require("http");
 const fs = require("fs");
 const path = require("path");
+const crypto = require("crypto");
 
 const PORT = Number(process.env.PORT || 8080);
 const ROOT = __dirname;
-const KEY = process.env.NVIDIA_API_KEY || "";
+
+/* Secrets are easy to paste wrong: quotes, a trailing newline, a truncated
+   value, or the literal "nvapi-..." placeholder from the README. Normalise
+   what we can and expose a harmless fingerprint so the health check can
+   tell you whether the server is holding the exact same key you tested. */
+const RAW_KEY = process.env.NVIDIA_API_KEY || "";
+const KEY = RAW_KEY.trim().replace(/^["']+|["']+$/g, "").trim();
+
 const UPSTREAM = (process.env.NVIDIA_BASE_URL || "https://integrate.api.nvidia.com/v1").replace(/\/+$/, "");
 
 const MODELS = new Set([
@@ -25,7 +33,7 @@ const MODELS = new Set([
   "nvidia/nemotron-3.5-lightning-30b-a3b",
   "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning",
   "nvidia/nemotron-3.5-super-vl-120b-a12b",
-  "mistralai/mistral-large-4-1t-a52b",
+  "mistralai/mistral-large-4-1t-a52b"
 ]);
 
 const MIME = {
@@ -66,8 +74,22 @@ const CSP = [
 
 const BODY_LIMIT = 30 * 1024 * 1024;
 const RATE_WINDOW = 60 * 1000;
-const RATE_MAX = 30;
+const RATE_MAX = 60;
 const rateHits = new Map();
+
+function keyReport() {
+  return {
+    present: Boolean(KEY),
+    length: KEY.length,
+    prefixOk: KEY.startsWith("nvapi-"),
+    placeholder: KEY === "nvapi-..." || KEY === "nvapi-",
+    hadWhitespace: RAW_KEY !== RAW_KEY.trim(),
+    hadQuotes: RAW_KEY.trim() !== RAW_KEY.trim().replace(/^["']+|["']+$/g, ""),
+    fingerprint: KEY
+      ? crypto.createHash("sha256").update(KEY).digest("hex").slice(0, 8)
+      : null
+  };
+}
 
 function json(res, status, obj, extra) {
   const body = JSON.stringify(obj);
@@ -167,11 +189,15 @@ async function chat(req, res) {
   const body = {
     model: payload.model,
     messages: payload.messages,
-    max_tokens: clamp(payload.max_tokens, 16, 4096, 2048),
+    max_tokens: clamp(payload.max_tokens, 16, 8192, 2048),
     temperature: clamp(payload.temperature, 0, 2, 0.65),
     top_p: clamp(payload.top_p, 0, 1, 0.95),
     stream: payload.stream !== false
   };
+
+  /* Ask NVIDIA to send a final usage chunk while streaming, so the browser
+     can show real prompt/completion token counts instead of guessing. */
+  if (body.stream) body.stream_options = { include_usage: true };
 
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 180000);
@@ -296,6 +322,7 @@ const server = http.createServer(async (req, res) => {
       return json(res, 200, {
         ok: Boolean(KEY),
         configured: Boolean(KEY),
+        key: keyReport(),
         models: [...MODELS]
       });
     }
