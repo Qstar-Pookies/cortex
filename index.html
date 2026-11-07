@@ -1912,7 +1912,7 @@
       </button>
     </div>
     <div class="script-subbar" id="scriptSubbar" hidden>
-      <span><b id="scriptCount">0</b> published &middot; reviewed by cortex</span>
+      <span><b id="scriptCount">0</b> published &middot; community vault</span>
       <button class="script-refresh" id="scriptRefresh" type="button">refresh</button>
     </div>
     <div class="script-body">
@@ -1955,7 +1955,7 @@
       </label>
       <div class="script-form-foot">
         <span class="script-hint">Plain text only &middot; max 256 KB &middot; never executed</span>
-        <button class="script-submit" id="scriptSubmit" type="submit">submit for review</button>
+        <button class="script-submit" id="scriptSubmit" type="submit">submit script</button>
       </div>
       <div class="script-status" id="scriptStatus" role="status" aria-live="polite" hidden></div>
     </form>
@@ -4738,7 +4738,7 @@ Put any complete file, script, or document in one fenced block. The info line is
 
   function setScriptBusy(on) {
     scriptSubmit.disabled = on;
-    scriptSubmit.textContent = on ? "reviewing..." : "submit for review";
+    scriptSubmit.textContent = on ? "checking..." : "submit script";
   }
 
   function renderScripts() {
@@ -4783,7 +4783,7 @@ Put any complete file, script, or document in one fenced block. The info line is
 
       const summary = document.createElement("p");
       summary.className = "script-summary";
-      summary.textContent = s.summary || "Approved by the Cortex reviewer.";
+      summary.textContent = s.summary || "Passed the local safety checks.";
 
       const pre = document.createElement("pre");
       pre.className = "script-code";
@@ -4814,7 +4814,7 @@ Put any complete file, script, or document in one fenced block. The info line is
       scriptSubbar.hidden = false;
       scriptEmpty.hidden = false;
       scriptEmpty.innerHTML =
-        "<p>Could not load approved scripts.</p>" +
+        "<p>Could not load published scripts.</p>" +
         `<span>${scriptEsc(err && err.message ? err.message : "Unknown error")}</span>`;
     } finally {
       scriptsLoading = false;
@@ -4996,8 +4996,8 @@ Put any complete file, script, or document in one fenced block. The info line is
       scriptQuery = "";
       scriptSearch.value = "";
       closeScriptModal();
-      setScriptStatus("ok", `Approved. "${j.script.name}" is now in the vault.`);
-      showToast("Script approved", j.script.name, "#63d38a");
+      setScriptStatus("ok", `Published. "${j.script.name}" is now in the vault.`);
+      showToast("Script published", j.script.name, "#63d38a");
       scriptsLoaded = false;
       await loadScripts(true);
     } catch (err) {
