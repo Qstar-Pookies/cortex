@@ -900,6 +900,11 @@
   }
   .msg .meta .m-dot{width:3px;height:3px;border-radius:50%;background:#5a5a66}
   .msg.user .meta .m-dot{background:var(--accent)}
+  .msg .meta .m-skill{
+    max-width:200px;padding:1px 6px;border:1px solid #3a1010;border-radius:999px;
+    background:#140a0a;color:#c98079;font-size:9px;letter-spacing:.02em;
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  }
   .msg.error .bubble{
     padding:12px 14px;border:1px solid #3a1a1a;border-radius:12px;
     background:#170c0d;color:#e6a9a2;font-size:13px;
@@ -1047,6 +1052,39 @@
   .ai-composer{
     padding:12px 24px 14px;border-top:1px solid #141419;background:#0a0a0d;
   }
+  .skills-pop{
+    width:min(700px,100%);margin:0 auto 8px;border:1px solid #22222c;
+    border-radius:12px;background:#0d0d12;overflow:hidden;
+    box-shadow:0 -20px 44px -34px #000;
+  }
+  .skills-pop[hidden]{display:none}
+  .skills-pop-head{
+    display:flex;align-items:center;justify-content:space-between;gap:10px;
+    padding:8px 8px 8px 12px;border-bottom:1px solid #191920;
+    font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;color:#66666f;
+  }
+  .skills-pop-x{
+    width:22px;height:22px;display:grid;place-items:center;flex:0 0 auto;
+    border:0;border-radius:6px;background:none;color:#66666f;
+    font:inherit;font-size:15px;line-height:1;cursor:pointer;
+    transition:background .2s ease,color .2s ease;
+  }
+  .skills-pop-x:hover,.skills-pop-x:focus-visible{background:#1a1a21;color:#e4e4ea}
+  .skills-pop-list{max-height:min(42vh,320px);overflow:auto;padding:6px;overscroll-behavior:contain}
+  .skill-row{
+    display:grid;grid-template-columns:1fr auto;gap:2px 10px;width:100%;
+    padding:8px 10px;border:0;border-radius:8px;background:none;text-align:left;
+    font:inherit;color:var(--text);cursor:pointer;
+  }
+  .skill-row:hover,.skill-row:focus-visible{background:#14141a}
+  .skill-row .skill-name{font-size:12px;color:#dcdce4;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .skill-row .skill-id{justify-self:end;font-size:9.5px;color:#8a5a56;font-variant-numeric:tabular-nums}
+  .skill-row .skill-desc{
+    grid-column:1 / -1;font-family:var(--read);font-size:11px;line-height:1.45;
+    color:#5c5c68;overflow:hidden;display:-webkit-box;
+    -webkit-line-clamp:2;-webkit-box-orient:vertical;
+  }
+  .skills-pop-empty{padding:14px 12px;font-family:var(--read);font-size:11px;color:#5c5c68}
   .ai-composer-inner{
     width:min(700px,100%);margin:0 auto;border:1px solid #22222c;
     border-radius:14px;background:#0f0f14;
@@ -1569,6 +1607,13 @@
       </div>
 
       <div class="ai-composer">
+        <div class="skills-pop" id="skillsPop" hidden>
+          <div class="skills-pop-head">
+            <span id="skillsPopTitle">skills</span>
+            <button class="skills-pop-x" id="skillsClose" type="button" aria-label="Close skills">&times;</button>
+          </div>
+          <div class="skills-pop-list" id="skillsPopList"></div>
+        </div>
         <div class="ai-composer-inner">
           <div class="attach-row" id="attachRow"></div>
           <textarea id="aiInput" rows="1" maxlength="16000"
@@ -3588,6 +3633,10 @@ document.addEventListener("keydown", e => {
   const sendBtn    = $("sendBtn");
   const attachBtn  = $("attachBtn");
   const attachRow  = $("attachRow");
+  const skillsPop  = $("skillsPop");
+  const skillsPopTitle = $("skillsPopTitle");
+  const skillsPopList  = $("skillsPopList");
+  const skillsClose    = $("skillsClose");
   const filesInput = $("aiFiles");
   const clearChat  = $("clearChat");
   const newChatBtn = $("newChat");
@@ -3854,7 +3903,376 @@ Put any complete file, script, or document in one fenced block. The info line is
     return body ? CORTEX_SIG + "\n\n" + body : "";
   }
 
+  /* ---------- skills -------------------------------------------------
+     Skills live in the cortex repo, not this one:
 
+       https://github.com/Qstar-Pookies/cortex/tree/main/skills
+
+     A skill is a flat file (skills/name.md) or a folder holding
+     SKILL.md. Frontmatter is optional: name, description, keywords,
+     always. Every message is matched against the names and
+     descriptions; the best matches are loaded into the system prompt,
+     so the model follows the skill that fits the ask.
+  ------------------------------------------------------------------- */
+  const SKILLS_OWNER  = "Qstar-Pookies";
+  const SKILLS_REPO   = "cortex";
+  const SKILLS_BRANCH = "main";
+  const SKILLS_DIR    = "skills";
+  const SKILLS_KEY    = "cortex.skills.v1";
+  const SKILLS_TTL    = 10 * 60 * 1000;
+  const SKILLS_TOP    = 3;
+  const SKILLS_CHARS  = 24000;
+  const SKILLS_CACHE_MAX = 250000;
+  const SKILLS_STAMP  = Date.now();
+
+  const SKILL_STOP = new Set((
+    "a an and are as at be but by can could did do does for from had has have he her " +
+    "him his how i if in into is it its me my no not of on or our out she so than that " +
+    "the their them then there these they this to too up us was we were what when where " +
+    "which who why will with would you your"
+  ).split(" "));
+
+  let skillCache = null;        // { at, list: [{ id, name, description, keywords, always, path, text? }] }
+  let skillsLoading = null;
+  let skillsReady = false;
+
+  const skillTokens = s => String(s || "").toLowerCase().match(/[a-z0-9][a-z0-9+#._-]*/g) || [];
+  const skillStem = w => (w.length > 4 ? w.replace(/(?:ing|ed|es|s)$/, "") : w);
+  const skillRe = s => String(s).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+  function skillMeta(raw, id, path) {
+    let text = String(raw || "").replace(/\r\n/g, "\n").trim();
+    let name = "", description = "", always = false;
+    let keywords = [];
+
+    const fm = text.match(/^---\n([\s\S]*?)\n---\n?/);
+    if (fm) {
+      const block = fm[1];
+      const grab = key => {
+        const m = block.match(new RegExp("^\\s*" + key + "\\s*:\\s*(.*)$", "mi"));
+        return m ? m[1].trim().replace(/^["']|["']$/g, "") : "";
+      };
+      name = grab("name");
+      description = grab("description");
+      always = /^(?:true|yes|1)$/i.test(grab("always"));
+      const kw = grab("keywords") || grab("tags");
+      if (kw) {
+        keywords = kw.replace(/^\[|\]$/g, "").split(",")
+          .map(s => s.trim().replace(/^["']|["']$/g, ""))
+          .filter(Boolean);
+      }
+      text = text.slice(fm[0].length).trim();
+    }
+
+    if (!name) {
+      const h = text.match(/^#\s+(.+?)\s*$/m);
+      if (h) name = h[1];
+    }
+    if (!description) {
+      const body = text.replace(/^#{1,6}\s.*$/gm, "").trim();
+      const first = body.split(/\n\s*\n/).map(s => s.replace(/\s+/g, " ").trim()).find(Boolean);
+      if (first) description = first.slice(0, 180);
+    }
+    if (!name) name = id.replace(/[-_]+/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+
+    return { id, name, description, keywords, always, path, text };
+  }
+
+  async function fetchSkillRaw(path) {
+    const clean = path.split("/").map(encodeURIComponent).join("/");
+    const r = await fetch(
+      `https://raw.githubusercontent.com/${SKILLS_OWNER}/${SKILLS_REPO}/${SKILLS_BRANCH}/${clean}?t=${SKILLS_STAMP}`,
+      { cache: "no-store" }
+    );
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    return r.text();
+  }
+
+  function readSkillCache() {
+    try {
+      const raw = localStorage.getItem(SKILLS_KEY);
+      if (!raw) return null;
+      const j = JSON.parse(raw);
+      if (!j || !Array.isArray(j.list) || !j.at) return null;
+      if (Date.now() - j.at > SKILLS_TTL) return null;
+      return j;
+    } catch { return null; }
+  }
+
+  function writeSkillCache(list) {
+    try {
+      let raw = JSON.stringify({ at: Date.now(), list });
+      if (raw.length > SKILLS_CACHE_MAX) {
+        raw = JSON.stringify({
+          at: Date.now(),
+          list: list.map(s => ({
+            id: s.id, name: s.name, description: s.description,
+            keywords: s.keywords, always: s.always, path: s.path
+          }))
+        });
+      }
+      localStorage.setItem(SKILLS_KEY, raw);
+    } catch {}
+  }
+
+  async function listSkillPaths() {
+    const stamp = Date.now();
+    try {
+      const r = await fetch(
+        `https://api.github.com/repos/${SKILLS_OWNER}/${SKILLS_REPO}/git/trees/${SKILLS_BRANCH}?recursive=1&t=${stamp}`,
+        { cache: "no-store", headers: { Accept: "application/vnd.github+json" } }
+      );
+      if (r.ok) {
+        const j = await r.json();
+        if (Array.isArray(j.tree)) {
+          return j.tree.filter(t => t.type === "blob").map(t => t.path);
+        }
+      }
+    } catch {}
+    /* jsDelivr mirror, for when the GitHub API is rate limited. */
+    try {
+      const r = await fetch(
+        `https://data.jsdelivr.com/v1/packages/gh/${SKILLS_OWNER}/${SKILLS_REPO}@${SKILLS_BRANCH}?structure=flat&t=${stamp}`,
+        { cache: "no-store" }
+      );
+      if (r.ok) {
+        const j = await r.json();
+        if (Array.isArray(j.files)) return j.files.map(f => String(f.name).replace(/^\/+/, ""));
+      }
+    } catch {}
+    return null;
+  }
+
+  function skillFileId(path) {
+    const rel = path.slice(SKILLS_DIR.length + 1);
+    if (/\/skill\.md$/i.test(path) || /\/index\.md$/i.test(path)) return rel.split("/")[0];
+    return rel.replace(/\.[^.]+$/, "");
+  }
+
+  function skillFileOk(path) {
+    if (!path.startsWith(SKILLS_DIR + "/")) return false;
+    const rel = path.slice(SKILLS_DIR.length + 1);
+    if (!rel || rel.startsWith(".")) return false;
+    if (/\/skill\.md$/i.test(path) || /\/index\.md$/i.test(path)) return true;
+    if (rel.includes("/")) return false;
+    return /\.(?:md|txt|prompt)$/i.test(rel) || !/\.[^./]+$/.test(rel);
+  }
+
+  function loadSkills(force) {
+    if (skillsReady && !force) return Promise.resolve(skillCache);
+    if (skillsLoading) return skillsLoading;
+
+    skillsLoading = (async () => {
+      if (!force) {
+        const cached = readSkillCache();
+        if (cached) {
+          skillCache = cached;
+          skillsReady = true;
+          updateSkillHint();
+          return skillCache;
+        }
+      }
+
+      let paths = null;
+      try { paths = await listSkillPaths(); } catch {}
+
+      if (!paths) {
+        /* Keep whatever we had; do not wipe the list on a network blip. */
+        if (!skillCache) skillCache = { at: Date.now(), list: [] };
+        skillsReady = true;
+        updateSkillHint();
+        return skillCache;
+      }
+
+      const files = [...new Set(paths.filter(skillFileOk))]
+        .map(path => ({ path, id: skillFileId(path) }))
+        .sort((a, b) => Number(/\/skill\.md$/i.test(b.path)) - Number(/\/skill\.md$/i.test(a.path)))
+        .slice(0, 80);
+
+      const seen = new Set();
+      const picked = [];
+      for (const f of files) {
+        if (seen.has(f.id)) continue;
+        seen.add(f.id);
+        picked.push(f);
+      }
+
+      const list = [];
+      for (let i = 0; i < picked.length; i += 4) {
+        const batch = picked.slice(i, i + 4);
+        const got = await Promise.all(batch.map(async f => {
+          try {
+            const raw = await fetchSkillRaw(f.path);
+            if (raw.length > 200000) return null;
+            return skillMeta(raw, f.id, f.path);
+          } catch { return null; }
+        }));
+        for (const m of got) if (m) list.push(m);
+      }
+
+      list.sort((a, b) => a.name.localeCompare(b.name));
+      skillCache = { at: Date.now(), list };
+      skillsReady = true;
+      writeSkillCache(list);
+      updateSkillHint();
+      return skillCache;
+    })();
+
+    const settle = () => { skillsLoading = null; };
+    skillsLoading.then(settle, settle);
+    return skillsLoading;
+  }
+
+  async function skillBody(skill) {
+    if (skill.text) return skill.text;
+    try {
+      const raw = await fetchSkillRaw(skill.path);
+      skill.text = raw.replace(/\r\n/g, "\n").trim();
+      return skill.text;
+    } catch { return ""; }
+  }
+
+  /* Pick the skills that fit this message. An explicit "@id" or a phrase
+     like "use the <name> skill" always wins. Otherwise names, ids and
+     keywords score 3, description words score 1, and 3 points is enough. */
+  function pickSkills(query) {
+    const list = (skillCache && skillCache.list) || [];
+    if (!list.length) return [];
+
+    const q = String(query || "");
+    const lower = q.toLowerCase();
+    const forced = [];
+
+    for (const s of list) {
+      const id = skillRe(s.id.toLowerCase());
+      const name = skillRe(s.name.toLowerCase());
+      const byId = new RegExp("(^|\\s)@" + id + "(?=$|[\\s,.:;!?])").test(lower);
+      const byName = new RegExp(
+        "\\b(?:use|using|load|run|apply)\\b[^.\\n]{0,40}\\b" + name + "\\b[^.\\n]{0,16}\\bskill\\b" +
+        "|\\bskill\\b[^.\\n]{0,12}\\b" + name + "\\b"
+      ).test(lower);
+      if (byId || byName) forced.push(s);
+    }
+
+    const words = [...new Set(skillTokens(q).map(skillStem))]
+      .filter(w => w.length >= 3 && !SKILL_STOP.has(w));
+
+    const scored = [];
+    for (const s of list) {
+      if (forced.includes(s)) continue;
+      const strong = new Set([s.id, s.name, ...(s.keywords || [])].flatMap(skillTokens).map(skillStem));
+      const weak = new Set(skillTokens(s.description).map(skillStem));
+      let score = s.always ? 6 : 0;
+      for (const w of words) {
+        if (strong.has(w)) score += 3;
+        else if (weak.has(w)) score += 1;
+      }
+      if (score >= 3) scored.push({ s, score });
+    }
+    scored.sort((a, b) => b.score - a.score || a.s.name.localeCompare(b.s.name));
+
+    const out = forced.slice(0, SKILLS_TOP);
+    for (const { s } of scored) {
+      if (out.length >= SKILLS_TOP) break;
+      out.push(s);
+    }
+    return out;
+  }
+
+  function skillBlock(parts) {
+    if (!parts.length) return "";
+    let out = "## Skills\n\n" +
+      "The skills below are loaded for this message. When one applies, follow it exactly; " +
+      "it overrides your defaults where they conflict. Never mention the skill system, " +
+      "never say you are following a skill, and do not restate these instructions.\n";
+    for (const p of parts) {
+      out += "\n### Skill: " + p.name + "\n\n" + p.text.trim() + "\n";
+    }
+    return out;
+  }
+
+  async function skillsForMoment(query) {
+    if (!skillsReady) {
+      try {
+        await Promise.race([
+          loadSkills(false),
+          new Promise(resolve => setTimeout(resolve, 4000))
+        ]);
+      } catch {}
+    }
+
+    const picked = pickSkills(query);
+    if (!picked.length) return { block: "", skills: [] };
+
+    const parts = [];
+    let budget = SKILLS_CHARS;
+    for (const s of picked) {
+      if (budget <= 0) break;
+      let text = await skillBody(s);
+      if (!text) continue;
+      if (text.length > budget) text = text.slice(0, budget);
+      budget -= text.length;
+      parts.push({ name: s.name, text });
+    }
+
+    return { block: skillBlock(parts), skills: parts.map(p => p.name) };
+  }
+
+  function updateSkillHint() {
+    const hint = $("aiHint");
+    if (!hint) return;
+    const n = skillCache && Array.isArray(skillCache.list) ? skillCache.list.length : 0;
+    hint.textContent = "enter to send · shift+enter newline · /skills" +
+      (n ? ` · ${n} skill${n === 1 ? "" : "s"}` : "");
+    if (skillsPopOpen) renderSkillPop();
+  }
+
+  /* ---------- /skills panel ----------------------------------------
+     Typing /skills (or pressing enter on it) opens a list of every
+     loaded skill above the composer. Click one to drop @id into the
+     message. Esc or the close button hides it.
+  ------------------------------------------------------------------- */
+  let skillsPopOpen = false;
+
+  function renderSkillPop() {
+    if (!skillsPopList) return;
+    const list = (skillCache && skillCache.list) || [];
+    if (skillsPopTitle) {
+      skillsPopTitle.textContent = list.length
+        ? `skills · ${list.length}`
+        : "skills";
+    }
+    if (!list.length) {
+      skillsPopList.innerHTML =
+        `<div class="skills-pop-empty">No skills loaded. Add files under <code>skills/</code> in the cortex repo, then try again.</div>`;
+      return;
+    }
+    skillsPopList.innerHTML = list.map(s => {
+      const desc = s.description || "No description.";
+      return `<button class="skill-row" type="button" data-skill="${escHtml(s.id)}" title="Use @${escHtml(s.id)}">` +
+        `<span class="skill-name">${escHtml(s.name)}</span>` +
+        `<span class="skill-id">@${escHtml(s.id)}</span>` +
+        `<span class="skill-desc">${escHtml(desc)}</span>` +
+        `</button>`;
+    }).join("");
+  }
+
+  function setSkillPop(open) {
+    skillsPopOpen = !!open;
+    if (skillsPop) skillsPop.hidden = !skillsPopOpen;
+    if (!skillsPopOpen) return;
+    renderSkillPop();
+    loadSkills(false).then(renderSkillPop).catch(() => {});
+  }
+
+  function skillPopFromInput() {
+    const v = aiInput.value.trim().toLowerCase();
+    if (v === "/skills") { setSkillPop(true); return; }
+    /* Empty after running the command: keep the panel until Esc, the
+       close button, or the next message typed. */
+    if (!v && skillsPopOpen) return;
+    if (skillsPopOpen) setSkillPop(false);
+  }
 
   let store = { chats: [], active: null };
   let currentTab = null;
@@ -4183,6 +4601,7 @@ Put any complete file, script, or document in one fenced block. The info line is
         model: m.model || c.model || AI_MODELS[0].id,
         at: m.at || Date.now(),
         error: typeof m.error === "string" ? m.error : "",
+        skills: Array.isArray(m.skills) ? m.skills.filter(x => typeof x === "string").slice(0, 6) : [],
         usage: m.usage && Number.isFinite(Number(m.usage.total))
           ? {
               prompt: Number(m.usage.prompt) || 0,
@@ -4451,7 +4870,11 @@ Put any complete file, script, or document in one fenced block. The info line is
       : m.role === "user"
         ? "you"
         : (MODEL_LABEL[m.model] || "cortex ai");
+    const usedSkills = Array.isArray(m.skills) ? m.skills.filter(Boolean) : [];
     const meta = `<div class="meta"><span class="m-dot"></span><span>${escHtml(who)}</span>` +
+      (usedSkills.length
+        ? `<span class="m-skill" title="Skill loaded for this reply">skill: ${escHtml(usedSkills.join(", "))}</span>`
+        : "") +
       (m.at ? `<span>&middot;</span><span>${timeOf(m.at)}</span>` : "") + `</div>`;
 
     const actions = (!m.error && m.role === "assistant" && m.content)
@@ -4753,13 +5176,35 @@ Put any complete file, script, or document in one fenced block. The info line is
     }
   }
 
-  aiInput.addEventListener("input", () => { autosize(); updateSend(); });
+  aiInput.addEventListener("input", () => { autosize(); updateSend(); skillPopFromInput(); });
 
   aiInput.addEventListener("keydown", e => {
+    if (e.key === "Escape" && skillsPopOpen) {
+      e.preventDefault();
+      setSkillPop(false);
+      return;
+    }
     if (e.key === "Enter" && !e.shiftKey && !e.isComposing) {
       e.preventDefault();
       if (!sendBtn.disabled) send();
     }
+  });
+
+  skillsClose.addEventListener("click", () => {
+    setSkillPop(false);
+    aiInput.focus();
+  });
+
+  skillsPopList.addEventListener("click", e => {
+    const row = e.target.closest("[data-skill]");
+    if (!row) return;
+    const id = row.dataset.skill || "";
+    const v = aiInput.value.trim();
+    aiInput.value = (!v || v.toLowerCase() === "/skills") ? `@${id} ` : `${v} @${id} `;
+    setSkillPop(false);
+    autosize();
+    updateSend();
+    aiInput.focus();
   });
 
   sendBtn.addEventListener("click", () => {
@@ -4815,8 +5260,9 @@ Put any complete file, script, or document in one fenced block. The info line is
     return t.length > 36 ? t.slice(0, 36).trimEnd() + "…" : t;
   }
 
-  function apiMessages(chat, model) {
-    const out = [{ role: "system", content: SYSTEM_PROMPT }];
+  function apiMessages(chat, model, extraSystem) {
+    const system = extraSystem ? SYSTEM_PROMPT + "\n\n" + extraSystem : SYSTEM_PROMPT;
+    const out = [{ role: "system", content: system }];
     let imageBudget = 8;
 
     for (const m of chat.messages) {
@@ -4871,6 +5317,16 @@ Put any complete file, script, or document in one fenced block. The info line is
     const images = pending.map(i => i.data);
     if (!text && !images.length) return;
 
+    /* Local slash command: list every loaded skill, never call the model. */
+    if (/^\/skills$/i.test(text)) {
+      setSkillPop(true);
+      aiInput.value = "";
+      autosize();
+      updateSend();
+      aiInput.focus();
+      return;
+    }
+
     const chat = ensureChat();
     const model = chooseModel(chat, images.length > 0);
 
@@ -4900,7 +5356,7 @@ Put any complete file, script, or document in one fenced block. The info line is
     const assistant = {
       id: uid(), role: "assistant", content: "", reasoning: "",
       images: [], model: model.id, at: Date.now(), streaming: true, error: "",
-      usage: null
+      usage: null, skills: []
     };
     chat.messages.push(assistant);
 
@@ -4909,7 +5365,36 @@ Put any complete file, script, or document in one fenced block. The info line is
     renderThread();
     scrollBottom(true);
 
-    const payloadMessages = apiMessages(chat, model);
+    const picked = await skillsForMoment(text);
+    let skillBlockText = picked.block;
+    let usedSkills = picked.skills;
+
+    /* A follow-up like "now make it faster" has no keywords of its own,
+       so keep the skills the previous reply used. A new match still wins. */
+    if (!usedSkills.length) {
+      const prior = [...chat.messages].reverse().find(m =>
+        m.role === "assistant" && Array.isArray(m.skills) && m.skills.length);
+      const known = (skillCache && skillCache.list) || [];
+      const parts = [];
+      let budget = SKILLS_CHARS;
+      for (const name of (prior ? prior.skills : [])) {
+        if (budget <= 0) break;
+        const s = known.find(x => x.name === name);
+        if (!s) continue;
+        let body = await skillBody(s);
+        if (!body) continue;
+        if (body.length > budget) body = body.slice(0, budget);
+        budget -= body.length;
+        parts.push({ name: s.name, text: body });
+      }
+      if (parts.length) {
+        skillBlockText = skillBlock(parts);
+        usedSkills = parts.map(p => p.name);
+      }
+    }
+
+    assistant.skills = usedSkills;
+    const payloadMessages = apiMessages(chat, model, skillBlockText);
     const promptEstimate = estimateMessages(payloadMessages);
 
     const ctrl = new AbortController();
@@ -5127,10 +5612,16 @@ Put any complete file, script, or document in one fenced block. The info line is
   updateSend();
   autosize();
   setTab(hashTab());
+  loadSkills(false).catch(() => {});
 
   window.__cortexAI = {
     state: store,
     models: AI_MODELS,
+    skills: () => (skillCache ? skillCache.list.map(s => ({ id: s.id, name: s.name, description: s.description })) : []),
+    refreshSkills: () => loadSkills(true),
+    openSkills: () => setSkillPop(true),
+    closeSkills: () => setSkillPop(false),
+    pickSkills,
     send,
     newChat: () => newChatBtn.click()
   };
