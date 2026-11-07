@@ -28,7 +28,7 @@ const KEY = RAW_KEY.trim().replace(/^["']+|["']+$/g, "").trim();
 const UPSTREAM = (process.env.NVIDIA_BASE_URL || "https://integrate.api.nvidia.com/v1").replace(/\/+$/, "");
 
 const MODELS = new Set([
-  "mistralai/mistral-large-4-1t-a52b",
+  "nvidia/nemotron-3-ultra-550b-a55b",
    "deepseek-ai/deepseek-v4.1-flash"
 ]);
 
